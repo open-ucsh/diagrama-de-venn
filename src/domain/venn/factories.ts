@@ -1,4 +1,4 @@
-import type { Point, VennDiagram, VennSet } from "./models";
+import type { Point, VennDiagram, VennElement, VennSet } from "./models";
 
 const DEFAULT_SET_RADIUS = 160;
 
@@ -8,6 +8,20 @@ export function createVennSet(name: string, position: Point, radius = DEFAULT_SE
     name,
     position,
     radius,
+  };
+}
+
+export function createVennElement(label: string, setIds: string[]): VennElement {
+  const trimmedLabel = label.trim();
+
+  if (!trimmedLabel) {
+    throw new Error("El elemento debe tener un nombre.");
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    label: trimmedLabel,
+    setIds: [...new Set(setIds)],
   };
 }
 
@@ -35,5 +49,6 @@ export function createInitialDiagram(name = "Diagrama sin título"): VennDiagram
         radius: DEFAULT_SET_RADIUS,
       },
     ],
+    elements: [],
   };
 }

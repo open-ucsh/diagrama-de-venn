@@ -10,6 +10,12 @@ export interface VennSet {
   radius: number;
 }
 
+export interface VennElement {
+  id: string;
+  label: string;
+  setIds: string[];
+}
+
 export interface VennDiagramMetadata {
   name: string;
   createdAt: string;
@@ -20,4 +26,5 @@ export interface VennDiagram {
   id: string;
   metadata: VennDiagramMetadata;
   sets: VennSet[];
+  elements: VennElement[];
 }
