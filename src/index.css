@@ -28,3 +28,11 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
 }
+
+.canvas-grid {
+  background-color: var(--color-background);
+  background-image:
+    linear-gradient(to right, rgb(215 222 231 / 45%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(215 222 231 / 45%) 1px, transparent 1px);
+  background-size: 24px 24px;
+}

@@ -10,7 +10,7 @@ export function SelectionInspector() {
 
   if (selection?.kind !== "set") {
     return (
-      <aside className="min-h-0 overflow-y-auto border-t border-border bg-white lg:border-t-0 lg:border-l">
+      <aside className="min-h-0 overflow-y-auto border-t border-border bg-white lg:col-span-3 lg:border-t-0 lg:border-l">
         <div className="border-b border-border px-6 py-5">
           <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Propiedades</p>
         </div>
@@ -65,7 +65,7 @@ function SetInspector({ set }: { set: VennSet }) {
   }
 
   return (
-    <aside className="min-h-0 overflow-y-auto border-t border-border bg-white lg:border-t-0 lg:border-l">
+    <aside className="min-h-0 overflow-y-auto border-t border-border bg-white lg:col-span-3 lg:border-t-0 lg:border-l">
       <div className="border-b border-border px-6 py-5">
         <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Propiedades</p>
       </div>

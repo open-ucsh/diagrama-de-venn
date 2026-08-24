@@ -43,10 +43,10 @@ export function VennCanvas() {
   return (
     <svg
       aria-label="Diagrama de Venn"
-      className="h-auto w-full max-w-5xl"
+      className="canvas-grid block h-auto w-full max-w-225 overflow-hidden rounded-xl border border-border bg-background shadow-sm"
       onPointerMove={onCanvasPointerMove}
       onPointerUp={onCanvasPointerUp}
-      role="img"
+      role="application"
       viewBox="0 0 900 600"
     >
       <rect fill="transparent" height="600" onClick={() => select(null)} width="900" />
@@ -81,18 +81,18 @@ export function VennCanvas() {
             tabIndex={0}
           >
             <circle
+              className={`${style.fillClassName} ${style.strokeClassName}`}
               cx={set.position.x}
               cy={set.position.y}
               r={set.radius}
-              className={`${style.fillClassName} ${style.strokeClassName}`}
               strokeWidth={isSelected ? 7 : 4}
             />
 
             <text
-              x={set.position.x + labelOffset}
-              y={set.position.y}
               className={`${style.textClassName} pointer-events-none text-3xl font-bold`}
               textAnchor="middle"
+              x={set.position.x + labelOffset}
+              y={set.position.y}
             >
               {set.name}
             </text>
