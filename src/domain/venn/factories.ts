@@ -39,13 +39,13 @@ export function createInitialDiagram(name = "Diagrama sin título"): VennDiagram
       {
         id: "set-a",
         name: "A",
-        position: { x: 340, y: 300 },
+        position: { x: 370, y: 300 },
         radius: DEFAULT_SET_RADIUS,
       },
       {
         id: "set-b",
         name: "B",
-        position: { x: 500, y: 300 },
+        position: { x: 530, y: 300 },
         radius: DEFAULT_SET_RADIUS,
       },
     ],
