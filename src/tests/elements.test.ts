@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialDiagram, createVennElement } from "../domain/venn/factories";
+import { createInitialDiagram, createVennElement } from "@/domain/venn/factories";
 
 describe("Venn elements", () => {
   it("creates an empty element list for a new diagram", () => {

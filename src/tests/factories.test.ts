@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialDiagram } from "../domain/venn/factories";
+import { createInitialDiagram } from "@/domain/venn/factories";
 
 describe("createInitialDiagram", () => {
   it("creates a diagram with two initial sets", () => {

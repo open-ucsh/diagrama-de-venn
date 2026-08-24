@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialDiagram, createVennElement } from "../domain/venn/factories";
-import { addElement } from "../domain/venn/operations";
-import { getElementsInRegion, getRegionForElement } from "../domain/venn/queries";
-import { getVennRegions } from "../domain/venn/regions";
+import { createInitialDiagram, createVennElement } from "@/domain/venn/factories";
+import { addElement } from "@/domain/venn/operations";
+import { getElementsInRegion, getRegionForElement } from "@/domain/venn/queries";
+import { getVennRegions } from "@/domain/venn/regions";
 
 describe("Venn queries", () => {
   it("gets the elements that belong to a region", () => {

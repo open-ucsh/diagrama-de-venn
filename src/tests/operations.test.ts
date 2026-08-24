@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialDiagram, createVennSet } from "../domain/venn/factories";
-import { MAX_SETS, addSet, moveSet, removeSet, renameSet } from "../domain/venn/operations";
+import { createInitialDiagram, createVennSet } from "@/domain/venn/factories";
+import { MAX_SETS, addSet, moveSet, removeSet, renameSet } from "@/domain/venn/operations";
 
 describe("Venn set operations", () => {
   it("adds a set without changing the original diagram", () => {
