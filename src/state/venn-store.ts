@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { createInitialDiagram, createVennElement, createVennSet } from "../domain/venn/factories";
-import type { Point, VennDiagram } from "../domain/venn/models";
+import { createInitialDiagram, createVennElement, createVennSet } from "@/domain/venn/factories";
+import type { Point, VennDiagram } from "@/domain/venn/models";
 import {
   addElement,
   addSet,
@@ -12,7 +12,7 @@ import {
   renameElement,
   renameSet,
   setElementMembership,
-} from "../domain/venn/operations";
+} from "@/domain/venn/operations";
 
 const memoryStorage = (() => {
   const values = new Map<string, string>();

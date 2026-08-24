@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialDiagram, createVennElement } from "../domain/venn/factories";
+import { createInitialDiagram, createVennElement } from "@/domain/venn/factories";
 import {
   addElement,
   removeElement,
   renameElement,
   setElementMembership,
-} from "../domain/venn/operations";
+} from "@/domain/venn/operations";
 
 describe("Venn element operations", () => {
   it("adds an element without changing the original diagram", () => {

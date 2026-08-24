@@ -28,7 +28,10 @@ export function VennCanvas() {
   const moveSet = useVennStore((state) => state.moveSet);
   const select = useVennStore((state) => state.select);
 
-  const { onCanvasPointerMove, onCanvasPointerUp, onSetPointerDown } = useVennSetDrag(moveSet);
+  const { onCanvasPointerMove, onCanvasPointerUp, onSetPointerDown } = useVennSetDrag(
+    sets,
+    moveSet,
+  );
 
   function handleSetKeyDown(event: KeyboardEvent<SVGGElement>, setId: string) {
     if (event.key === "Enter" || event.key === " ") {

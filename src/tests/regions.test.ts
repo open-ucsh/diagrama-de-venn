@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialDiagram, createVennSet } from "../domain/venn/factories";
-import { addSet } from "../domain/venn/operations";
-import { getRegionLabel, getVennRegions } from "../domain/venn/regions";
+import { createInitialDiagram, createVennSet } from "@/domain/venn/factories";
+import { addSet } from "@/domain/venn/operations";
+import { getRegionLabel, getVennRegions } from "@/domain/venn/regions";
 
 describe("Venn regions", () => {
   it("creates four regions for two sets", () => {

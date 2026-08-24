@@ -1,6 +1,7 @@
 import { useRef, type PointerEvent } from "react";
 
 import type { Point, VennSet } from "@/domain/venn/models";
+import { clampSetPosition } from "@/domain/venn/geometry";
 
 interface DragState {
   offset: Point;
@@ -16,7 +17,10 @@ function getSvgPoint(svg: SVGSVGElement, event: PointerEvent<SVGSVGElement | SVG
   };
 }
 
-export function useVennSetDrag(onMoveSet: (setId: string, position: Point) => void) {
+export function useVennSetDrag(
+  sets: VennSet[],
+  onMoveSet: (setId: string, position: Point) => void,
+) {
   const dragStateRef = useRef<DragState | null>(null);
 
   function onSetPointerDown(event: PointerEvent<SVGGElement>, set: VennSet) {
@@ -49,11 +53,19 @@ export function useVennSetDrag(onMoveSet: (setId: string, position: Point) => vo
     }
 
     const pointer = getSvgPoint(event.currentTarget, event);
+    const set = sets.find((currentSet) => currentSet.id === dragState.setId);
 
-    onMoveSet(dragState.setId, {
-      x: pointer.x - dragState.offset.x,
-      y: pointer.y - dragState.offset.y,
-    });
+    if (!set) {
+      return;
+    }
+
+    onMoveSet(
+      dragState.setId,
+      clampSetPosition(set, {
+        x: pointer.x - dragState.offset.x,
+        y: pointer.y - dragState.offset.y,
+      }),
+    );
   }
 
   function onCanvasPointerUp(event: PointerEvent<SVGSVGElement>) {
