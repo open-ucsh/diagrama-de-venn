@@ -1,13 +1,13 @@
-import type { VennDiagram, VennSet } from "./models";
+import type { Point, VennDiagram, VennSet } from "./models";
 
 const DEFAULT_SET_RADIUS = 160;
 
-function createSet(id: string, name: string, x: number, y: number): VennSet {
+export function createVennSet(name: string, position: Point, radius = DEFAULT_SET_RADIUS): VennSet {
   return {
-    id,
+    id: crypto.randomUUID(),
     name,
-    position: { x, y },
-    radius: DEFAULT_SET_RADIUS,
+    position,
+    radius,
   };
 }
 
@@ -21,6 +21,19 @@ export function createInitialDiagram(name = "Diagrama sin título"): VennDiagram
       createdAt: now,
       updatedAt: now,
     },
-    sets: [createSet("set-a", "A", 340, 300), createSet("set-b", "B", 500, 300)],
+    sets: [
+      {
+        id: "set-a",
+        name: "A",
+        position: { x: 340, y: 300 },
+        radius: DEFAULT_SET_RADIUS,
+      },
+      {
+        id: "set-b",
+        name: "B",
+        position: { x: 500, y: 300 },
+        radius: DEFAULT_SET_RADIUS,
+      },
+    ],
   };
 }
