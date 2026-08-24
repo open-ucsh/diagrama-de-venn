@@ -1,4 +1,4 @@
-import { VennCanvas } from "./components/canvas/VennCanvas";
+import { VennCanvas } from "@/components/canvas/VennCanvas";
 
 function App() {
   return (

@@ -1,6 +1,8 @@
 import type { KeyboardEvent } from "react";
 
-import { useVennStore } from "../../state/venn-store";
+import { useVennStore } from "@/state/venn-store";
+
+import { useVennSetDrag } from "./hooks/useVennSetDrag";
 
 const SET_STYLES = [
   {
@@ -23,7 +25,10 @@ const SET_STYLES = [
 export function VennCanvas() {
   const sets = useVennStore((state) => state.diagram.sets);
   const selection = useVennStore((state) => state.selection);
+  const moveSet = useVennStore((state) => state.moveSet);
   const select = useVennStore((state) => state.select);
+
+  const { onCanvasPointerMove, onCanvasPointerUp, onSetPointerDown } = useVennSetDrag(moveSet);
 
   function handleSetKeyDown(event: KeyboardEvent<SVGGElement>, setId: string) {
     if (event.key === "Enter" || event.key === " ") {
@@ -37,6 +42,8 @@ export function VennCanvas() {
       aria-label="Diagrama de Venn"
       className="h-auto w-full max-w-5xl"
       onClick={() => select(null)}
+      onPointerMove={onCanvasPointerMove}
+      onPointerUp={onCanvasPointerUp}
       role="img"
       viewBox="0 0 900 600"
     >
@@ -56,13 +63,18 @@ export function VennCanvas() {
           <g
             aria-label={`Seleccionar conjunto ${set.name}`}
             aria-pressed={isSelected}
-            className="cursor-pointer outline-none"
+            className="cursor-grab outline-none active:cursor-grabbing"
             key={set.id}
             onClick={(event) => {
               event.stopPropagation();
               select({ id: set.id, kind: "set" });
             }}
             onKeyDown={(event) => handleSetKeyDown(event, set.id)}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              select({ id: set.id, kind: "set" });
+              onSetPointerDown(event, set);
+            }}
             role="button"
             tabIndex={0}
           >
