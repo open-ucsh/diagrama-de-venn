@@ -17,7 +17,8 @@
   "dependencies": {
     "@fontsource/ubuntu": "^5.3.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "vitest": "^4.1.11"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
