@@ -6,7 +6,7 @@ export function EditorHeader() {
   const diagramName = useVennStore((state) => state.diagram.metadata.name);
 
   return (
-    <header className="border-b-4 border-accent bg-brand-primary px-5 py-4 text-white sm:px-8">
+    <header className="shrink-0 border-b-4 border-accent bg-brand-primary px-5 py-4 text-white sm:px-8">
       <div className="mx-auto flex max-w-screen-2xl items-center gap-5">
         <img
           alt="Universidad Católica Silva Henríquez"

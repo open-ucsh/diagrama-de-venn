@@ -1,5 +1,7 @@
-import { Circle, MousePointer2 } from "lucide-react";
+import { useState } from "react";
+import { Circle, MousePointer2, X } from "lucide-react";
 
+import type { VennSet } from "@/domain/venn/models";
 import { useVennStore } from "@/state/venn-store";
 
 export function SelectionInspector() {
@@ -8,7 +10,7 @@ export function SelectionInspector() {
 
   if (selection?.kind !== "set") {
     return (
-      <aside className="border-t border-border bg-white lg:border-t-0 lg:border-l">
+      <aside className="min-h-0 overflow-y-auto border-t border-border bg-white lg:border-t-0 lg:border-l">
         <div className="border-b border-border px-6 py-5">
           <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Propiedades</p>
         </div>
@@ -34,21 +36,100 @@ export function SelectionInspector() {
     return null;
   }
 
+  return <SetInspector key={set.id} set={set} />;
+}
+
+function SetInspector({ set }: { set: VennSet }) {
+  const renameSet = useVennStore((state) => state.renameSet);
+  const [draftName, setDraftName] = useState(set.name);
+  const [isEditingName, setIsEditingName] = useState(false);
+
+  function saveName() {
+    const name = draftName.trim();
+
+    if (name && name !== set.name) {
+      renameSet(set.id, name);
+    }
+
+    setIsEditingName(false);
+  }
+
+  function startEditing(clearName = false) {
+    setDraftName(clearName ? "" : set.name);
+    setIsEditingName(true);
+  }
+
+  function cancelEditing() {
+    setDraftName(set.name);
+    setIsEditingName(false);
+  }
+
   return (
-    <aside className="border-t border-border bg-white lg:border-t-0 lg:border-l">
+    <aside className="min-h-0 overflow-y-auto border-t border-border bg-white lg:border-t-0 lg:border-l">
       <div className="border-b border-border px-6 py-5">
         <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Propiedades</p>
       </div>
 
       <div className="px-6 py-7">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-xl border border-brand-primary bg-brand-primary/10 text-brand-primary">
-            <Circle className="size-5" />
+        <div className="flex items-start gap-4">
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-brand-primary/20 bg-brand-primary/10 text-brand-primary">
+            <Circle className="size-7" />
           </span>
 
-          <div>
-            <p className="text-sm text-text-muted">Conjunto seleccionado</p>
-            <h1 className="text-xl font-bold">{set.name}</h1>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold uppercase tracking-wide text-brand-primary">Conjunto</p>
+
+            {isEditingName ? (
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  aria-label="Nombre del conjunto"
+                  autoFocus
+                  className="h-12 min-w-0 flex-1 rounded-xl border-2 border-brand-primary/40 bg-white px-3 text-2xl font-bold tracking-tight outline-none transition-colors focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10"
+                  onBlur={saveName}
+                  onChange={(event) => setDraftName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      saveName();
+                    }
+
+                    if (event.key === "Escape") {
+                      cancelEditing();
+                    }
+                  }}
+                  value={draftName}
+                />
+
+                <button
+                  aria-label="Borrar nombre"
+                  className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface hover:text-brand-primary"
+                  onClick={() => setDraftName("")}
+                  onMouseDown={(event) => event.preventDefault()}
+                  type="button"
+                >
+                  <X className="size-6" />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-1 flex items-center gap-2">
+                <button
+                  aria-label={`Renombrar conjunto ${set.name}`}
+                  className="min-w-0 flex-1 truncate text-left text-3xl font-bold tracking-tight transition-colors hover:text-brand-primary-hover"
+                  onClick={() => startEditing()}
+                  type="button"
+                >
+                  {set.name}
+                </button>
+
+                <button
+                  aria-label="Borrar nombre para editarlo"
+                  className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface hover:text-brand-primary"
+                  onClick={() => startEditing(true)}
+                  type="button"
+                >
+                  <X className="size-6" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
