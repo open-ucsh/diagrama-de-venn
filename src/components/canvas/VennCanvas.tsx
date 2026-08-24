@@ -44,13 +44,12 @@ export function VennCanvas() {
     <svg
       aria-label="Diagrama de Venn"
       className="h-auto w-full max-w-5xl"
-      onClick={() => select(null)}
       onPointerMove={onCanvasPointerMove}
       onPointerUp={onCanvasPointerUp}
       role="img"
       viewBox="0 0 900 600"
     >
-      <rect fill="transparent" height="600" width="900" />
+      <rect fill="transparent" height="600" onClick={() => select(null)} width="900" />
 
       {sets.map((set, index) => {
         const style = SET_STYLES[index];
