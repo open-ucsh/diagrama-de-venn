@@ -1,11 +1,13 @@
-import type { VennDiagram } from "./models";
+import { isPointInsideSet } from "./geometry";
+
+import type { Point, VennDiagram } from "./models";
 
 export interface VennRegion {
   id: string;
   setIds: string[];
 }
 
-function createRegionId(setIds: string[]): string {
+export function createRegionId(setIds: string[]): string {
   if (setIds.length === 0) {
     return "outside";
   }
@@ -29,6 +31,19 @@ export function getVennRegions(diagram: VennDiagram): VennRegion[] {
   }
 
   return regions;
+}
+
+export function getRegionAtPoint(diagram: VennDiagram, point: Point): VennRegion {
+  const setIds = diagram.sets.filter((set) => isPointInsideSet(point, set)).map((set) => set.id);
+
+  return {
+    id: createRegionId(setIds),
+    setIds,
+  };
+}
+
+export function findVennRegion(diagram: VennDiagram, regionId: string): VennRegion | undefined {
+  return getVennRegions(diagram).find((region) => region.id === regionId);
 }
 
 export function getRegionLabel(diagram: VennDiagram, region: VennRegion): string {

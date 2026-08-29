@@ -1,8 +1,11 @@
 import { create } from "zustand";
+
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { createInitialDiagram, createVennElement, createVennSet } from "@/domain/venn/factories";
+
 import type { Point, VennDiagram } from "@/domain/venn/models";
+
 import {
   addElement,
   addSet,
@@ -19,9 +22,11 @@ const memoryStorage = (() => {
 
   return {
     getItem: (name: string) => values.get(name) ?? null,
+
     removeItem: (name: string) => {
       values.delete(name);
     },
+
     setItem: (name: string, value: string) => {
       values.set(name, value);
     },
@@ -49,24 +54,34 @@ function getStorage() {
 const STORE_NAME = "venn-editor";
 const STORE_VERSION = 1;
 
-export type VennSelection =
-  | { id: string; kind: "element" }
-  | { id: string; kind: "region" }
-  | { id: string; kind: "set" }
-  | null;
+export type VennSelection = { id: string; kind: "element" } | { id: string; kind: "set" } | null;
 
 interface VennStore {
   diagram: VennDiagram;
   selection: VennSelection;
+  selectedRegionIds: string[];
+
   resetDiagram: (name?: string) => void;
   select: (selection: VennSelection) => void;
+
+  toggleRegionSelection: (regionId: string) => void;
+
+  clearRegionSelection: () => void;
+
   createSet: (name: string, position: Point) => void;
+
   renameSet: (setId: string, name: string) => void;
+
   moveSet: (setId: string, position: Point) => void;
+
   removeSet: (setId: string) => void;
+
   createElement: (label: string, setIds: string[]) => void;
+
   renameElement: (elementId: string, label: string) => void;
+
   setElementMembership: (elementId: string, setIds: string[]) => void;
+
   removeElement: (elementId: string) => void;
 }
 
@@ -75,14 +90,30 @@ export const useVennStore = create<VennStore>()(
     (set) => ({
       diagram: createInitialDiagram(),
       selection: null,
+      selectedRegionIds: [],
 
       resetDiagram: (name) =>
         set({
           diagram: createInitialDiagram(name),
           selection: null,
+          selectedRegionIds: [],
         }),
 
       select: (selection) => set({ selection }),
+
+      toggleRegionSelection: (regionId) =>
+        set((state) => ({
+          selection: null,
+
+          selectedRegionIds: state.selectedRegionIds.includes(regionId)
+            ? state.selectedRegionIds.filter((currentRegionId) => currentRegionId !== regionId)
+            : [...state.selectedRegionIds, regionId],
+        })),
+
+      clearRegionSelection: () =>
+        set({
+          selectedRegionIds: [],
+        }),
 
       createSet: (name, position) =>
         set((state) => {
@@ -90,7 +121,13 @@ export const useVennStore = create<VennStore>()(
 
           return {
             diagram: addSet(state.diagram, newSet),
-            selection: { id: newSet.id, kind: "set" },
+
+            selection: {
+              id: newSet.id,
+              kind: "set",
+            },
+
+            selectedRegionIds: [],
           };
         }),
 
@@ -102,15 +139,20 @@ export const useVennStore = create<VennStore>()(
       moveSet: (setId, position) =>
         set((state) => ({
           diagram: moveSet(state.diagram, setId, position),
+
+          selectedRegionIds: [],
         })),
 
       removeSet: (setId) =>
         set((state) => ({
           diagram: removeSet(state.diagram, setId),
+
           selection:
             state.selection?.kind === "set" && state.selection.id === setId
               ? null
               : state.selection,
+
+          selectedRegionIds: [],
         })),
 
       createElement: (label, setIds) =>
@@ -131,16 +173,19 @@ export const useVennStore = create<VennStore>()(
       removeElement: (elementId) =>
         set((state) => ({
           diagram: removeElement(state.diagram, elementId),
+
           selection:
             state.selection?.kind === "element" && state.selection.id === elementId
               ? null
               : state.selection,
         })),
     }),
+
     {
       name: STORE_NAME,
       version: STORE_VERSION,
       storage: createJSONStorage(getStorage),
+
       partialize: (state) => ({
         diagram: state.diagram,
       }),

@@ -1,7 +1,11 @@
-import { Circle, Plus } from "lucide-react";
+import { useState } from "react";
+
+import { Check, Circle, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import type { Point, VennSet } from "@/domain/venn/models";
-import { MAX_SETS } from "@/domain/venn/operations";
+
+import { MAX_SETS, MIN_SETS } from "@/domain/venn/operations";
+
 import { useVennStore } from "@/state/venn-store";
 
 const DEFAULT_SET_NAMES = ["A", "B", "C"] as const;
@@ -46,7 +50,10 @@ function getNextSetPosition(sets: VennSet[]): Point {
   const [firstPosition, ...remainingPositions] = DEFAULT_SET_POSITIONS;
 
   if (!firstPosition) {
-    return { x: 450, y: 300 };
+    return {
+      x: 450,
+      y: 300,
+    };
   }
 
   return remainingPositions.reduce((bestPosition, candidatePosition) => {
@@ -66,11 +73,20 @@ function getNextSetName(sets: VennSet[]): string {
 
 export function SetsPanel() {
   const sets = useVennStore((state) => state.diagram.sets);
-  const selection = useVennStore((state) => state.selection);
+
   const createSet = useVennStore((state) => state.createSet);
-  const select = useVennStore((state) => state.select);
+
+  const renameSet = useVennStore((state) => state.renameSet);
+
+  const removeSet = useVennStore((state) => state.removeSet);
+
+  const [editingSetId, setEditingSetId] = useState<string | null>(null);
+
+  const [draftName, setDraftName] = useState("");
 
   const canCreateSet = sets.length < MAX_SETS;
+
+  const canRemoveSet = sets.length > MIN_SETS;
 
   function handleCreateSet() {
     if (!canCreateSet) {
@@ -80,13 +96,51 @@ export function SetsPanel() {
     createSet(getNextSetName(sets), getNextSetPosition(sets));
   }
 
-  return (
-    <aside className="min-h-0 overflow-y-auto border-b border-border bg-white lg:col-span-3 lg:border-r lg:border-b-0">
-      <div className="border-b border-border px-6 py-5">
-        <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Conjuntos</p>
-      </div>
+  function startEditing(set: VennSet) {
+    setEditingSetId(set.id);
+    setDraftName(set.name);
+  }
 
-      <div className="space-y-3 p-5">
+  function cancelEditing() {
+    setEditingSetId(null);
+    setDraftName("");
+  }
+
+  function saveName(set: VennSet) {
+    const name = draftName.trim();
+
+    if (name && name !== set.name) {
+      renameSet(set.id, name);
+    }
+
+    cancelEditing();
+  }
+
+  function handleRemoveSet(set: VennSet) {
+    if (!canRemoveSet) {
+      return;
+    }
+
+    const confirmed = window.confirm(`¿Quieres eliminar el conjunto "${set.name}"?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    removeSet(set.id);
+
+    if (editingSetId === set.id) {
+      cancelEditing();
+    }
+  }
+
+  return (
+    <aside className="min-h-0 overflow-y-auto border-b border-border bg-white lg:border-r lg:border-b-0">
+      <header className="border-b border-border px-6 py-5">
+        <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Conjuntos</p>
+      </header>
+
+      <div className="space-y-2 p-4">
         {sets.map((set, index) => {
           const style = SET_STYLES[index];
 
@@ -94,42 +148,109 @@ export function SetsPanel() {
             return null;
           }
 
-          const isSelected = selection?.kind === "set" && selection.id === set.id;
+          const isEditing = editingSetId === set.id;
 
           return (
-            <button
-              aria-pressed={isSelected}
-              className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors ${
-                isSelected
-                  ? `${style.borderClassName} ${style.backgroundClassName}`
-                  : "border-border bg-white hover:bg-surface"
-              }`}
+            <article
+              className="group rounded-xl border border-border bg-white p-3 transition-colors hover:border-brand-primary/30 hover:bg-surface/50"
               key={set.id}
-              onClick={() =>
-                select({
-                  id: set.id,
-                  kind: "set",
-                })
-              }
-              type="button"
             >
-              <span
-                className={`flex size-10 items-center justify-center rounded-xl border ${style.borderClassName} ${style.backgroundClassName} ${style.iconClassName}`}
-              >
-                <Circle aria-hidden="true" className="size-5" />
-              </span>
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-xl border ${style.borderClassName} ${style.backgroundClassName} ${style.iconClassName}`}
+                  >
+                    <Circle aria-hidden="true" className="size-5" />
+                  </span>
 
-              <span className="min-w-0">
-                <span className="block truncate font-bold">{set.name}</span>
+                  <input
+                    aria-label={`Nuevo nombre para ${set.name}`}
+                    autoFocus
+                    className="h-10 min-w-0 flex-1 rounded-lg border-2 border-brand-primary/40 bg-white px-3 font-bold text-ink outline-none transition-colors focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10"
+                    onChange={(event) => setDraftName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        saveName(set);
+                      }
 
-                <span className="mt-0.5 block text-sm text-text-muted">Radio {set.radius}px</span>
-              </span>
-            </button>
+                      if (event.key === "Escape") {
+                        cancelEditing();
+                      }
+                    }}
+                    value={draftName}
+                  />
+
+                  <button
+                    aria-label="Cancelar edición"
+                    className="grid size-9 shrink-0 place-items-center rounded-lg text-text-muted transition-colors hover:bg-white hover:text-ink"
+                    onClick={cancelEditing}
+                    title="Cancelar"
+                    type="button"
+                  >
+                    <X aria-hidden="true" className="size-4" />
+                  </button>
+
+                  <button
+                    aria-label="Guardar nombre"
+                    className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-primary text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={draftName.trim().length === 0}
+                    onClick={() => saveName(set)}
+                    title="Guardar nombre"
+                    type="button"
+                  >
+                    <Check aria-hidden="true" className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`flex size-11 shrink-0 items-center justify-center rounded-xl border ${style.borderClassName} ${style.backgroundClassName} ${style.iconClassName}`}
+                  >
+                    <Circle aria-hidden="true" className="size-5" />
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-bold text-ink">{set.name}</p>
+
+                    <p className="mt-0.5 text-xs font-medium text-text-muted">
+                      Conjunto {index + 1}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      aria-label={`Renombrar conjunto ${set.name}`}
+                      className="grid size-9 place-items-center rounded-lg text-text-muted transition-colors hover:bg-brand-primary/10 hover:text-brand-primary"
+                      onClick={() => startEditing(set)}
+                      title="Renombrar conjunto"
+                      type="button"
+                    >
+                      <Pencil aria-hidden="true" className="size-4" />
+                    </button>
+
+                    <button
+                      aria-label={`Eliminar conjunto ${set.name}`}
+                      className="grid size-9 place-items-center rounded-lg text-text-muted transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30"
+                      disabled={!canRemoveSet}
+                      onClick={() => handleRemoveSet(set)}
+                      title={
+                        canRemoveSet
+                          ? "Eliminar conjunto"
+                          : `Debe existir al menos ${MIN_SETS} conjunto`
+                      }
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </article>
           );
         })}
 
         <button
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-3 text-sm font-bold text-text-muted transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary disabled:cursor-not-allowed disabled:border-border disabled:bg-surface disabled:text-text-muted"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-sm font-bold text-text-muted transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary disabled:cursor-not-allowed disabled:bg-surface disabled:text-text-muted"
           disabled={!canCreateSet}
           onClick={handleCreateSet}
           type="button"
