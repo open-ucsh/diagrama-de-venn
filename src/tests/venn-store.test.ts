@@ -10,8 +10,16 @@ describe("Venn store", () => {
   it("creates a third set through the store", () => {
     useVennStore.getState().createSet("C", { x: 420, y: 450 });
 
-    expect(useVennStore.getState().diagram.sets).toHaveLength(3);
-    expect(useVennStore.getState().diagram.sets[2]?.name).toBe("C");
+    const state = useVennStore.getState();
+    const createdSet = state.diagram.sets[2];
+
+    expect(state.diagram.sets).toHaveLength(3);
+    expect(createdSet?.name).toBe("C");
+
+    expect(state.selection).toEqual({
+      id: createdSet?.id,
+      kind: "set",
+    });
   });
 
   it("creates and selects an element", () => {

@@ -58,15 +58,12 @@ export type VennSelection =
 interface VennStore {
   diagram: VennDiagram;
   selection: VennSelection;
-
   resetDiagram: (name?: string) => void;
   select: (selection: VennSelection) => void;
-
   createSet: (name: string, position: Point) => void;
   renameSet: (setId: string, name: string) => void;
   moveSet: (setId: string, position: Point) => void;
   removeSet: (setId: string) => void;
-
   createElement: (label: string, setIds: string[]) => void;
   renameElement: (elementId: string, label: string) => void;
   setElementMembership: (elementId: string, setIds: string[]) => void;
@@ -88,9 +85,14 @@ export const useVennStore = create<VennStore>()(
       select: (selection) => set({ selection }),
 
       createSet: (name, position) =>
-        set((state) => ({
-          diagram: addSet(state.diagram, createVennSet(name, position)),
-        })),
+        set((state) => {
+          const newSet = createVennSet(name, position);
+
+          return {
+            diagram: addSet(state.diagram, newSet),
+            selection: { id: newSet.id, kind: "set" },
+          };
+        }),
 
       renameSet: (setId, name) =>
         set((state) => ({
