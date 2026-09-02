@@ -1,4 +1,4 @@
-import { VennCanvas } from "@/components/canvas/VennCanvas";
+import { CanvasViewport } from "@/components/canvas/CanvasViewport";
 
 import { EditorHeader } from "@/components/editor/EditorHeader";
 
@@ -17,8 +17,8 @@ function App() {
         <section className="flex min-w-0 flex-col gap-4 p-4 sm:p-6 lg:min-h-0 lg:overflow-hidden">
           <FormulaBar />
 
-          <div className="flex min-h-96 min-w-0 flex-1 items-center justify-center overflow-hidden">
-            <VennCanvas />
+          <div className="flex min-h-96 min-w-0 flex-1 overflow-hidden">
+            <CanvasViewport />
           </div>
         </section>
       </div>
