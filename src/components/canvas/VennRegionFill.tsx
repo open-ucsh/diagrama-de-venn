@@ -9,6 +9,7 @@ import { getVennRegions, type VennRegion } from "@/domain/venn/regions";
 interface VennRegionFillProps {
   diagram: VennDiagram;
   selectedRegionIds: string[];
+  hoveredRegionId?: string | null;
 }
 
 interface IntersectionShapeProps {
@@ -71,7 +72,11 @@ function getRegionSets(diagram: VennDiagram, region: VennRegion) {
   };
 }
 
-export function VennRegionFill({ diagram, selectedRegionIds }: VennRegionFillProps) {
+export function VennRegionFill({
+  diagram,
+  selectedRegionIds,
+  hoveredRegionId = null,
+}: VennRegionFillProps) {
   const reactId = useId();
 
   const idPrefix = reactId.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -95,7 +100,7 @@ export function VennRegionFill({ diagram, selectedRegionIds }: VennRegionFillPro
           }
 
           return (
-            <clipPath id={clipId} key={set.id} clipPathUnits="userSpaceOnUse">
+            <clipPath clipPathUnits="userSpaceOnUse" id={clipId} key={set.id}>
               <ClipShape set={set} />
             </clipPath>
           );
@@ -139,17 +144,28 @@ export function VennRegionFill({ diagram, selectedRegionIds }: VennRegionFillPro
       {regions.map((region, index) => {
         const isSelected = selectedIds.has(region.id);
 
+        const isHovered = hoveredRegionId === region.id;
+
         const maskId = `${idPrefix}-venn-region-mask-${index}`;
 
         return (
-          <rect
-            className="fill-brand-primary transition-opacity duration-200 ease-out"
-            height={VENN_CANVAS_SIZE.height}
-            key={region.id}
-            mask={`url(#${maskId})`}
-            opacity={isSelected ? 0.32 : 0}
-            width={VENN_CANVAS_SIZE.width}
-          />
+          <g key={region.id}>
+            <rect
+              className="fill-brand-primary transition-opacity duration-200 ease-out"
+              height={VENN_CANVAS_SIZE.height}
+              mask={`url(#${maskId})`}
+              opacity={isSelected ? 0.32 : 0}
+              width={VENN_CANVAS_SIZE.width}
+            />
+
+            <rect
+              className="fill-brand-primary transition-opacity duration-100 ease-out"
+              height={VENN_CANVAS_SIZE.height}
+              mask={`url(#${maskId})`}
+              opacity={isHovered ? 0.08 : 0}
+              width={VENN_CANVAS_SIZE.width}
+            />
+          </g>
         );
       })}
     </g>
