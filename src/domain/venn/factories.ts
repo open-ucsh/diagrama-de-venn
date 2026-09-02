@@ -49,8 +49,8 @@ const FOUR_SET_ELLIPSE_LAYOUT = [
 export function createVennSet(
   name: string,
   position: Point,
-  radius = DEFAULT_SET_RADIUS,
-  color = DEFAULT_SET_COLORS[0],
+  radius: number = DEFAULT_SET_RADIUS,
+  color: string = DEFAULT_SET_COLORS[0],
 ): VennSet {
   return {
     id: crypto.randomUUID(),
