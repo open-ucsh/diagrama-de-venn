@@ -1,11 +1,8 @@
 import type { VennDiagram } from "../models";
 
 import { getCanonicalExpression } from "./canonical-expression";
-
 import { getSelectedMask } from "./expression-masks";
-
 import type { Expression } from "./expression-model";
-
 import { generateSimpleExpressions } from "./expression-search";
 
 const MAX_EXHAUSTIVE_SET_COUNT = 3;
@@ -75,3 +72,11 @@ export function getSelectedRegionsExpression(
 
   return expressions.get(selectedMask)?.text ?? getCanonicalExpression(diagram, selectedRegionIds);
 }
+
+export {
+  getRegionIdsFromMask,
+  parseVennExpression,
+  VennExpressionError,
+} from "./expression-parser";
+
+export type { ParsedVennExpression } from "./expression-parser";

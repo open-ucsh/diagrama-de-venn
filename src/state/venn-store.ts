@@ -54,7 +54,16 @@ function getStorage() {
 const STORE_NAME = "venn-editor";
 const STORE_VERSION = 1;
 
-export type VennSelection = { id: string; kind: "element" } | { id: string; kind: "set" } | null;
+export type VennSelection =
+  | {
+      id: string;
+      kind: "element";
+    }
+  | {
+      id: string;
+      kind: "set";
+    }
+  | null;
 
 interface VennStore {
   diagram: VennDiagram;
@@ -62,7 +71,10 @@ interface VennStore {
   selectedRegionIds: string[];
 
   resetDiagram: (name?: string) => void;
+
   select: (selection: VennSelection) => void;
+
+  setRegionSelection: (regionIds: string[]) => void;
 
   toggleRegionSelection: (regionId: string) => void;
 
@@ -95,11 +107,22 @@ export const useVennStore = create<VennStore>()(
       resetDiagram: (name) =>
         set({
           diagram: createInitialDiagram(name),
+
           selection: null,
           selectedRegionIds: [],
         }),
 
-      select: (selection) => set({ selection }),
+      select: (selection) =>
+        set({
+          selection,
+        }),
+
+      setRegionSelection: (regionIds) =>
+        set({
+          selection: null,
+
+          selectedRegionIds: [...new Set(regionIds)],
+        }),
 
       toggleRegionSelection: (regionId) =>
         set((state) => ({
@@ -134,6 +157,8 @@ export const useVennStore = create<VennStore>()(
       renameSet: (setId, name) =>
         set((state) => ({
           diagram: renameSet(state.diagram, setId, name),
+
+          selectedRegionIds: [],
         })),
 
       moveSet: (setId, position) =>
@@ -184,6 +209,7 @@ export const useVennStore = create<VennStore>()(
     {
       name: STORE_NAME,
       version: STORE_VERSION,
+
       storage: createJSONStorage(getStorage),
 
       partialize: (state) => ({
