@@ -1,8 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { FileText, Redo2, Undo2 } from "lucide-react";
 
 import { useVennStore } from "@/state/venn-store";
+
+import { ExportMenu } from "./ExportMenu";
 
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
@@ -19,6 +21,8 @@ function isEditableElement(target: EventTarget | null): boolean {
 export function EditorHeader() {
   const diagramName = useVennStore((state) => state.diagram.metadata.name);
 
+  const renameDiagram = useVennStore((state) => state.renameDiagram);
+
   const canUndo = useVennStore((state) => state.past.length > 0);
 
   const canRedo = useVennStore((state) => state.future.length > 0);
@@ -26,6 +30,16 @@ export function EditorHeader() {
   const undo = useVennStore((state) => state.undo);
 
   const redo = useVennStore((state) => state.redo);
+
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [draftName, setDraftName] = useState(diagramName);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraftName(diagramName);
+    }
+  }, [diagramName, isEditing]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -63,30 +77,87 @@ export function EditorHeader() {
     };
   }, [canRedo, canUndo, redo, undo]);
 
+  function startEditing() {
+    setDraftName(diagramName);
+    setIsEditing(true);
+  }
+
+  function saveName() {
+    const name = draftName.trim();
+
+    if (name) {
+      renameDiagram(name);
+    } else {
+      setDraftName(diagramName);
+    }
+
+    setIsEditing(false);
+  }
+
+  function cancelEditing() {
+    setDraftName(diagramName);
+    setIsEditing(false);
+  }
+
   return (
     <header className="shrink-0 border-b-4 border-accent bg-brand-primary px-5 py-4 text-white sm:px-8">
-      <div className="mx-auto flex max-w-screen-2xl items-center gap-5">
+      <div className="mx-auto flex max-w-screen-2xl items-center gap-4 sm:gap-5">
         <img
           alt="Universidad Católica Silva Henríquez"
-          className="h-12 w-auto object-contain"
+          className="h-12 w-auto shrink-0 object-contain"
           src="/logo.png"
         />
 
-        <div className="h-10 w-px bg-white/20" />
+        <div aria-hidden="true" className="hidden h-10 w-px bg-white/20 sm:block" />
 
-        <div className="flex min-w-0 items-center gap-3">
-          <FileText aria-hidden="true" className="size-5 shrink-0 text-white/80" />
+        <FileText aria-hidden="true" className="hidden size-5 shrink-0 text-white/80 sm:block" />
 
-          <div className="min-w-0">
-            <p className="truncate text-base font-bold tracking-tight sm:text-lg">
-              Diagrama de Venn
-            </p>
+        <div className="min-w-0 flex-1">
+          {isEditing ? (
+            <input
+              aria-label="Nombre del diagrama"
+              autoComplete="off"
+              autoFocus
+              className="h-10 w-full max-w-md rounded-md border border-white/50 bg-white/10 px-2 text-base font-bold text-white outline-none transition-colors placeholder:text-white/40 focus:border-white focus:bg-white/15 sm:text-lg"
+              onBlur={saveName}
+              onChange={(event) => {
+                setDraftName(event.target.value);
+              }}
+              onFocus={(event) => {
+                event.currentTarget.select();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  saveName();
+                }
 
-            <p className="mt-0.5 truncate text-sm text-white/70">{diagramName}</p>
-          </div>
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  cancelEditing();
+                }
+              }}
+              spellCheck={false}
+              type="text"
+              value={draftName}
+            />
+          ) : (
+            <button
+              className="block max-w-full rounded-md px-2 py-1 text-left text-base font-bold tracking-tight text-white transition-colors hover:bg-white/10 sm:text-lg"
+              onClick={startEditing}
+              title="Cambiar nombre del diagrama"
+              type="button"
+            >
+              <span className="block truncate">{diagramName}</span>
+            </button>
+          )}
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1">
+          <ExportMenu />
+
+          <span aria-hidden="true" className="mx-1 h-7 w-px bg-white/20" />
+
           <button
             aria-label="Deshacer"
             className="grid size-10 place-items-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"

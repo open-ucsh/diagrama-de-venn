@@ -13,7 +13,7 @@ describe("createInitialDiagram", () => {
   it("uses the provided diagram name", () => {
     const diagram = createInitialDiagram("Encuesta de estudiantes");
 
-    expect(diagram.metadata.name).toBe("Encuesta de estudiantes");
+    expect(resolvedExportName).toBe("Encuesta de estudiantes");
   });
 
   it("creates different diagram identifiers", () => {

@@ -133,7 +133,7 @@ export function createVennElement(label: string, setIds: string[]): VennElement 
   };
 }
 
-export function createInitialDiagram(name = "Diagrama sin título"): VennDiagram {
+export function createInitialDiagram(name = "Diagrama de Venn"): VennDiagram {
   const now = new Date().toISOString();
 
   const initialSets: VennSet[] = [

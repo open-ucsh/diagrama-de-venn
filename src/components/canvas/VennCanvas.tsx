@@ -167,7 +167,12 @@ function RegionTooltip({ formula }: RegionTooltipProps) {
   const y = VENN_CANVAS_SIZE.height - 56;
 
   return (
-    <g aria-hidden="true" pointerEvents="none" transform={`translate(${x} ${y})`}>
+    <g
+      data-export-ignore
+      aria-hidden="true"
+      pointerEvents="none"
+      transform={`translate(${x} ${y})`}
+    >
       <rect
         fill="white"
         height="38"
@@ -251,6 +256,7 @@ export function VennCanvas() {
       role="application"
       viewBox={`0 0 ${VENN_CANVAS_SIZE.width} ${VENN_CANVAS_SIZE.height}`}
       width={VENN_CANVAS_SIZE.width}
+      data-venn-canvas
     >
       <rect
         className="fill-transparent"

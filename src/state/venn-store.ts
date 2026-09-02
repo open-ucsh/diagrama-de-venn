@@ -91,6 +91,10 @@ interface VennStore {
 
   resetDiagram: (name?: string) => void;
 
+  renameDiagram: (name: string) => void;
+
+  importProject: (diagram: VennDiagram, selectedRegionIds: string[]) => void;
+
   select: (selection: VennSelection) => void;
 
   setRegionSelection: (regionIds: string[]) => void;
@@ -154,6 +158,7 @@ export const useVennStore = create<VennStore>()(
   persist(
     (set) => ({
       diagram: createInitialDiagram(),
+
       selection: null,
       selectedRegionIds: [],
 
@@ -172,7 +177,9 @@ export const useVennStore = create<VennStore>()(
 
           return {
             diagram: previous.diagram,
+
             selection: previous.selection,
+
             selectedRegionIds: [...previous.selectedRegionIds],
 
             past: state.past.slice(0, -1),
@@ -194,6 +201,7 @@ export const useVennStore = create<VennStore>()(
           return {
             diagram: next.diagram,
             selection: next.selection,
+
             selectedRegionIds: [...next.selectedRegionIds],
 
             past: [...state.past, current].slice(-MAX_HISTORY_LENGTH),
@@ -209,6 +217,39 @@ export const useVennStore = create<VennStore>()(
 
             selection: null,
             selectedRegionIds: [],
+          }),
+        ),
+
+      renameDiagram: (name) =>
+        set((state) => {
+          const trimmedName = name.trim();
+
+          if (!trimmedName || trimmedName === state.diagram.metadata.name) {
+            return state;
+          }
+
+          return recordHistory(state, {
+            diagram: {
+              ...state.diagram,
+
+              metadata: {
+                ...state.diagram.metadata,
+
+                name: trimmedName,
+
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          });
+        }),
+
+      importProject: (diagram, selectedRegionIds) =>
+        set((state) =>
+          recordHistory(state, {
+            diagram,
+            selection: null,
+
+            selectedRegionIds: [...selectedRegionIds],
           }),
         ),
 
@@ -413,6 +454,7 @@ export const useVennStore = create<VennStore>()(
     {
       name: STORE_NAME,
       version: STORE_VERSION,
+
       storage: createJSONStorage(getStorage),
 
       partialize: (state) => ({
