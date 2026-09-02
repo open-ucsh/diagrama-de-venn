@@ -1,4 +1,4 @@
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Check, CircleAlert, Sigma, X } from "lucide-react";
 
@@ -10,6 +10,12 @@ import {
 } from "@/domain/venn/expressions";
 
 import { useVennStore } from "@/state/venn-store";
+
+import { FormulaHistoryMenu } from "./FormulaHistoryMenu";
+
+const FORMULA_HISTORY_STORAGE_KEY = "venn-formula-history";
+
+const MAX_FORMULA_HISTORY = 10;
 
 const FORMULA_SYMBOLS = [
   {
@@ -49,6 +55,34 @@ const FORMULA_SYMBOLS = [
   },
 ] as const;
 
+function loadFormulaHistory(): string[] {
+  try {
+    const storedValue = window.localStorage.getItem(FORMULA_HISTORY_STORAGE_KEY);
+
+    if (!storedValue) {
+      return [];
+    }
+
+    const parsed: unknown = JSON.parse(storedValue);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter((value): value is string => typeof value === "string")
+      .slice(0, MAX_FORMULA_HISTORY);
+  } catch {
+    return [];
+  }
+}
+
+function persistFormulaHistory(formulas: string[]) {
+  try {
+    window.localStorage.setItem(FORMULA_HISTORY_STORAGE_KEY, JSON.stringify(formulas));
+  } catch {}
+}
+
 export function FormulaBar() {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -63,12 +97,36 @@ export function FormulaBar() {
   const clearRegionSelection = useVennStore((state) => state.clearRegionSelection);
 
   const [formula, setFormula] = useState("");
+
   const [error, setError] = useState<string | null>(null);
+
+  const [formulaHistory, setFormulaHistory] = useState<string[]>(loadFormulaHistory);
 
   const selectedExpression = useMemo(
     () => getSelectedRegionsExpression(diagram, selectedRegionIds),
+
     [diagram, selectedRegionIds],
   );
+
+  const saveFormulaToHistory = useCallback((value: string) => {
+    const normalized = value.trim();
+
+    if (!normalized) {
+      return;
+    }
+
+    setFormulaHistory((currentHistory) => {
+      const nextHistory = [
+        normalized,
+
+        ...currentHistory.filter((currentFormula) => currentFormula !== normalized),
+      ].slice(0, MAX_FORMULA_HISTORY);
+
+      persistFormulaHistory(nextHistory);
+
+      return nextHistory;
+    });
+  }, []);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -86,8 +144,23 @@ export function FormulaBar() {
     }
 
     setFormula(selectedExpression ?? "");
+
     setError(null);
   }, [selectedExpression]);
+
+  useEffect(() => {
+    if (isEditingRef.current || !selectedExpression) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      saveFormulaToHistory(selectedExpression);
+    }, 700);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [saveFormulaToHistory, selectedExpression]);
 
   function applyFormula(value: string) {
     setFormula(value);
@@ -95,6 +168,7 @@ export function FormulaBar() {
     if (!value.trim()) {
       setError(null);
       setRegionSelection([]);
+
       return;
     }
 
@@ -102,6 +176,7 @@ export function FormulaBar() {
       const parsed = parseVennExpression(diagram, value);
 
       setRegionSelection(parsed.regionIds);
+
       setError(null);
     } catch (caughtError) {
       if (caughtError instanceof VennExpressionError) {
@@ -110,6 +185,18 @@ export function FormulaBar() {
         setError("No fue posible interpretar la fórmula.");
       }
     }
+  }
+
+  function recordFormula(value: string) {
+    if (!value.trim()) {
+      return;
+    }
+
+    try {
+      parseVennExpression(diagram, value);
+
+      saveFormulaToHistory(value);
+    } catch {}
   }
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
@@ -121,6 +208,7 @@ export function FormulaBar() {
 
     if (!input) {
       applyFormula(`${formula}${symbol}`);
+
       return;
     }
 
@@ -145,10 +233,57 @@ export function FormulaBar() {
     setFormula("");
     setError(null);
     clearRegionSelection();
+
     inputRef.current?.focus();
   }
 
+  function isHistoryFormulaAvailable(historicalFormula: string): boolean {
+    try {
+      parseVennExpression(diagram, historicalFormula);
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function applyHistoryFormula(historicalFormula: string) {
+    if (!isHistoryFormulaAvailable(historicalFormula)) {
+      return;
+    }
+
+    isEditingRef.current = true;
+
+    applyFormula(historicalFormula);
+
+    saveFormulaToHistory(historicalFormula);
+
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+
+      inputRef.current?.setSelectionRange(historicalFormula.length, historicalFormula.length);
+    });
+  }
+
+  function clearFormulaHistory() {
+    setFormulaHistory([]);
+    persistFormulaHistory([]);
+  }
+
+  function deleteFormulaFromHistory(formulaToDelete: string) {
+    setFormulaHistory((currentHistory) => {
+      const nextHistory = currentHistory.filter(
+        (currentFormula) => currentFormula !== formulaToDelete,
+      );
+
+      persistFormulaHistory(nextHistory);
+
+      return nextHistory;
+    });
+  }
+
   const hasFormula = formula.trim().length > 0;
+
   const isValid = hasFormula && !error;
 
   return (
@@ -182,10 +317,17 @@ export function FormulaBar() {
               id="venn-formula"
               onBlur={() => {
                 isEditingRef.current = false;
+
+                recordFormula(formula);
               }}
               onChange={handleChange}
               onFocus={() => {
                 isEditingRef.current = true;
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  recordFormula(formula);
+                }
               }}
               placeholder="Ejemplo: (A ∪ B) ∩ C'"
               spellCheck={false}
@@ -196,7 +338,7 @@ export function FormulaBar() {
             {isValid && (
               <Check
                 aria-hidden="true"
-                className="absolute right-1 top-1/2 size-5 -translate-y-1/2 text-emerald-600"
+                className="absolute top-1/2 right-1 size-5 -translate-y-1/2 text-emerald-600"
               />
             )}
           </div>
@@ -221,6 +363,14 @@ export function FormulaBar() {
           </div>
         </div>
 
+        <FormulaHistoryMenu
+          formulas={formulaHistory}
+          isAvailable={isHistoryFormulaAvailable}
+          onClear={clearFormulaHistory}
+          onDelete={deleteFormulaFromHistory}
+          onSelect={applyHistoryFormula}
+        />
+
         {(hasFormula || selectedRegionIds.length > 0) && (
           <button
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-text-muted transition-colors hover:bg-surface hover:text-ink"
@@ -242,6 +392,9 @@ export function FormulaBar() {
           <button
             className="flex size-9 items-center justify-center rounded-lg border border-border bg-white font-mono text-base font-bold text-ink transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary"
             key={symbol.title}
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
             onClick={() => {
               insertSymbol(symbol.value);
             }}
