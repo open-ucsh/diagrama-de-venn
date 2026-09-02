@@ -72,7 +72,7 @@ export function CanvasViewport() {
   return (
     <section
       aria-label="Área del diagrama"
-      className="relative min-h-96 min-w-0 flex-1 overflow-hidden rounded-xl"
+      className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl"
     >
       <div
         className="absolute top-3 right-3 z-20 flex items-center overflow-hidden rounded-lg border border-border bg-white shadow-sm lg:hidden"

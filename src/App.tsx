@@ -47,7 +47,7 @@ function App() {
         <section className="flex min-w-0 flex-col gap-4 p-4 sm:p-6 lg:min-h-0 lg:overflow-hidden">
           <FormulaBar />
 
-          <div className="flex min-h-96 min-w-0 flex-1 overflow-hidden">
+          <div className="flex h-112 min-w-0 flex-1 overflow-hidden sm:h-136 lg:h-auto lg:min-h-0">
             <CanvasViewport />
           </div>
         </section>
