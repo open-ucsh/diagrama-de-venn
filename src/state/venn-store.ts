@@ -22,6 +22,8 @@ import {
   setElementMembership,
 } from "@/domain/venn/operations";
 
+const MAX_HISTORY_LENGTH = 50;
+
 const memoryStorage = (() => {
   const values = new Map<string, string>();
 
@@ -70,10 +72,22 @@ export type VennSelection =
     }
   | null;
 
+interface VennSnapshot {
+  diagram: VennDiagram;
+  selection: VennSelection;
+  selectedRegionIds: string[];
+}
+
 interface VennStore {
   diagram: VennDiagram;
   selection: VennSelection;
   selectedRegionIds: string[];
+
+  past: VennSnapshot[];
+  future: VennSnapshot[];
+
+  undo: () => void;
+  redo: () => void;
 
   resetDiagram: (name?: string) => void;
 
@@ -106,6 +120,36 @@ interface VennStore {
   toggleSetVisibility: (setId: string) => void;
 }
 
+function createSnapshot(state: VennStore): VennSnapshot {
+  return {
+    diagram: state.diagram,
+    selection: state.selection,
+    selectedRegionIds: [...state.selectedRegionIds],
+  };
+}
+
+function recordHistory(state: VennStore, changes: Partial<VennSnapshot>): Partial<VennStore> {
+  const snapshot = createSnapshot(state);
+
+  return {
+    ...changes,
+
+    past: [...state.past, snapshot].slice(-MAX_HISTORY_LENGTH),
+
+    future: [],
+  };
+}
+
+function haveSameRegionIds(first: string[], second: string[]): boolean {
+  if (first.length !== second.length) {
+    return false;
+  }
+
+  const firstIds = new Set(first);
+
+  return second.every((id) => firstIds.has(id));
+}
+
 export const useVennStore = create<VennStore>()(
   persist(
     (set) => ({
@@ -113,38 +157,108 @@ export const useVennStore = create<VennStore>()(
       selection: null,
       selectedRegionIds: [],
 
-      resetDiagram: (name) =>
-        set({
-          diagram: createInitialDiagram(name),
+      past: [],
+      future: [],
 
-          selection: null,
-          selectedRegionIds: [],
+      undo: () =>
+        set((state) => {
+          const previous = state.past[state.past.length - 1];
+
+          if (!previous) {
+            return state;
+          }
+
+          const current = createSnapshot(state);
+
+          return {
+            diagram: previous.diagram,
+            selection: previous.selection,
+            selectedRegionIds: [...previous.selectedRegionIds],
+
+            past: state.past.slice(0, -1),
+
+            future: [current, ...state.future].slice(0, MAX_HISTORY_LENGTH),
+          };
         }),
 
+      redo: () =>
+        set((state) => {
+          const next = state.future[0];
+
+          if (!next) {
+            return state;
+          }
+
+          const current = createSnapshot(state);
+
+          return {
+            diagram: next.diagram,
+            selection: next.selection,
+            selectedRegionIds: [...next.selectedRegionIds],
+
+            past: [...state.past, current].slice(-MAX_HISTORY_LENGTH),
+
+            future: state.future.slice(1),
+          };
+        }),
+
+      resetDiagram: (name) =>
+        set((state) =>
+          recordHistory(state, {
+            diagram: createInitialDiagram(name),
+
+            selection: null,
+            selectedRegionIds: [],
+          }),
+        ),
+
       select: (selection) =>
-        set({
-          selection,
+        set((state) => {
+          if (state.selection?.id === selection?.id && state.selection?.kind === selection?.kind) {
+            return state;
+          }
+
+          return recordHistory(state, {
+            selection,
+          });
         }),
 
       setRegionSelection: (regionIds) =>
-        set({
-          selection: null,
+        set((state) => {
+          const uniqueRegionIds = [...new Set(regionIds)];
 
-          selectedRegionIds: [...new Set(regionIds)],
+          if (haveSameRegionIds(state.selectedRegionIds, uniqueRegionIds)) {
+            return state;
+          }
+
+          return recordHistory(state, {
+            selection: null,
+
+            selectedRegionIds: uniqueRegionIds,
+          });
         }),
 
       toggleRegionSelection: (regionId) =>
-        set((state) => ({
-          selection: null,
-
-          selectedRegionIds: state.selectedRegionIds.includes(regionId)
+        set((state) => {
+          const selectedRegionIds = state.selectedRegionIds.includes(regionId)
             ? state.selectedRegionIds.filter((currentRegionId) => currentRegionId !== regionId)
-            : [...state.selectedRegionIds, regionId],
-        })),
+            : [...state.selectedRegionIds, regionId];
+
+          return recordHistory(state, {
+            selection: null,
+            selectedRegionIds,
+          });
+        }),
 
       clearRegionSelection: () =>
-        set({
-          selectedRegionIds: [],
+        set((state) => {
+          if (state.selectedRegionIds.length === 0) {
+            return state;
+          }
+
+          return recordHistory(state, {
+            selectedRegionIds: [],
+          });
         }),
 
       createSet: (name, position) =>
@@ -153,7 +267,7 @@ export const useVennStore = create<VennStore>()(
 
           const newSet = createVennSet(name, position, undefined, color);
 
-          return {
+          return recordHistory(state, {
             diagram: addSet(state.diagram, newSet),
 
             selection: {
@@ -162,107 +276,143 @@ export const useVennStore = create<VennStore>()(
             },
 
             selectedRegionIds: [],
-          };
+          });
         }),
 
       renameSet: (setId, name) =>
-        set((state) => ({
-          diagram: renameSet(state.diagram, setId, name),
+        set((state) =>
+          recordHistory(state, {
+            diagram: renameSet(state.diagram, setId, name),
 
-          selectedRegionIds: [],
-        })),
+            selectedRegionIds: [],
+          }),
+        ),
 
       setSetColor: (setId, color) =>
-        set((state) => ({
-          diagram: {
-            ...state.diagram,
+        set((state) => {
+          const currentSet = state.diagram.sets.find((current) => current.id === setId);
 
-            metadata: {
-              ...state.diagram.metadata,
-              updatedAt: new Date().toISOString(),
+          if (!currentSet || currentSet.color === color) {
+            return state;
+          }
+
+          return recordHistory(state, {
+            diagram: {
+              ...state.diagram,
+
+              metadata: {
+                ...state.diagram.metadata,
+
+                updatedAt: new Date().toISOString(),
+              },
+
+              sets: state.diagram.sets.map((current) =>
+                current.id === setId
+                  ? {
+                      ...current,
+                      color,
+                    }
+                  : current,
+              ),
             },
-
-            sets: state.diagram.sets.map((set) =>
-              set.id === setId
-                ? {
-                    ...set,
-                    color,
-                  }
-                : set,
-            ),
-          },
-        })),
+          });
+        }),
 
       toggleSetVisibility: (setId) =>
-        set((state) => ({
-          diagram: {
-            ...state.diagram,
+        set((state) => {
+          const exists = state.diagram.sets.some((current) => current.id === setId);
 
-            metadata: {
-              ...state.diagram.metadata,
-              updatedAt: new Date().toISOString(),
+          if (!exists) {
+            return state;
+          }
+
+          return recordHistory(state, {
+            diagram: {
+              ...state.diagram,
+
+              metadata: {
+                ...state.diagram.metadata,
+
+                updatedAt: new Date().toISOString(),
+              },
+
+              sets: state.diagram.sets.map((current) =>
+                current.id === setId
+                  ? {
+                      ...current,
+
+                      hidden: !current.hidden,
+                    }
+                  : current,
+              ),
             },
-
-            sets: state.diagram.sets.map((set) =>
-              set.id === setId
-                ? {
-                    ...set,
-                    hidden: !set.hidden,
-                  }
-                : set,
-            ),
-          },
-        })),
+          });
+        }),
 
       moveSet: (setId, position) =>
-        set((state) => ({
-          diagram: moveSet(state.diagram, setId, position),
+        set((state) =>
+          recordHistory(state, {
+            diagram: moveSet(state.diagram, setId, position),
 
-          selectedRegionIds: [],
-        })),
+            selectedRegionIds: [],
+          }),
+        ),
 
       removeSet: (setId) =>
-        set((state) => ({
-          diagram: removeSet(state.diagram, setId),
+        set((state) =>
+          recordHistory(state, {
+            diagram: removeSet(state.diagram, setId),
 
-          selection:
-            state.selection?.kind === "set" && state.selection.id === setId
-              ? null
-              : state.selection,
+            selection:
+              state.selection?.kind === "set" && state.selection.id === setId
+                ? null
+                : state.selection,
 
-          selectedRegionIds: [],
-        })),
+            selectedRegionIds: [],
+          }),
+        ),
 
       createElement: (label, setIds) =>
-        set((state) => ({
-          diagram: addElement(state.diagram, createVennElement(label, setIds)),
-        })),
+        set((state) =>
+          recordHistory(state, {
+            diagram: addElement(
+              state.diagram,
+
+              createVennElement(label, setIds),
+            ),
+          }),
+        ),
 
       renameElement: (elementId, label) =>
-        set((state) => ({
-          diagram: renameElement(state.diagram, elementId, label),
-        })),
+        set((state) =>
+          recordHistory(state, {
+            diagram: renameElement(state.diagram, elementId, label),
+          }),
+        ),
 
       setElementMembership: (elementId, setIds) =>
-        set((state) => ({
-          diagram: setElementMembership(state.diagram, elementId, setIds),
-        })),
+        set((state) =>
+          recordHistory(state, {
+            diagram: setElementMembership(state.diagram, elementId, setIds),
+          }),
+        ),
 
       removeElement: (elementId) =>
-        set((state) => ({
-          diagram: removeElement(state.diagram, elementId),
+        set((state) =>
+          recordHistory(state, {
+            diagram: removeElement(state.diagram, elementId),
 
-          selection:
-            state.selection?.kind === "element" && state.selection.id === elementId
-              ? null
-              : state.selection,
-        })),
+            selection:
+              state.selection?.kind === "element" && state.selection.id === elementId
+                ? null
+                : state.selection,
+          }),
+        ),
     }),
 
     {
       name: STORE_NAME,
       version: STORE_VERSION,
-
       storage: createJSONStorage(getStorage),
 
       partialize: (state) => ({
