@@ -15,13 +15,36 @@ describe("Venn set operations", () => {
     expect(updatedDiagram.sets.at(-1)).toEqual(set);
   });
 
-  it("does not allow more than three sets", () => {
+  it("does not allow more than four sets", () => {
     const diagram = createInitialDiagram();
-    const diagramWithThreeSets = addSet(diagram, createVennSet("C", { x: 420, y: 450 }));
 
-    expect(() => addSet(diagramWithThreeSets, createVennSet("D", { x: 420, y: 450 }))).toThrow(
-      `como máximo ${MAX_SETS} conjuntos`,
+    const diagramWithThreeSets = addSet(
+      diagram,
+      createVennSet("C", {
+        x: 450,
+        y: 420,
+      }),
     );
+
+    const diagramWithFourSets = addSet(
+      diagramWithThreeSets,
+      createVennSet("D", {
+        x: 450,
+        y: 300,
+      }),
+    );
+
+    expect(diagramWithFourSets.sets).toHaveLength(MAX_SETS);
+
+    expect(() =>
+      addSet(
+        diagramWithFourSets,
+        createVennSet("E", {
+          x: 450,
+          y: 300,
+        }),
+      ),
+    ).toThrow(`como máximo ${MAX_SETS} conjuntos`);
   });
 
   it("renames a set without changing the original diagram", () => {
