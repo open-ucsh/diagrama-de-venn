@@ -1,11 +1,10 @@
-import type { MouseEvent } from "react";
+import type { MouseEvent, SVGProps } from "react";
 
-import { VENN_CANVAS_SIZE } from "@/domain/venn/geometry";
+import { getSetRadii, isEllipseSet, VENN_CANVAS_SIZE } from "@/domain/venn/geometry";
 
 import type { Point, VennSet } from "@/domain/venn/models";
 
 import { getRegionAtPoint } from "@/domain/venn/regions";
-
 import { useVennStore } from "@/state/venn-store";
 
 import { VennRegionFill } from "./VennRegionFill";
@@ -13,29 +12,114 @@ import { VennRegionFill } from "./VennRegionFill";
 const SET_STYLES = [
   {
     fillClassName: "fill-brand-primary/10",
+
     strokeClassName: "stroke-brand-primary",
+
     textClassName: "fill-brand-primary",
   },
   {
     fillClassName: "fill-accent/25",
+
     strokeClassName: "stroke-amber-500",
+
     textClassName: "fill-amber-700",
   },
   {
     fillClassName: "fill-violet-500/10",
+
     strokeClassName: "stroke-violet-600",
+
     textClassName: "fill-violet-700",
+  },
+  {
+    fillClassName: "fill-emerald-500/10",
+
+    strokeClassName: "stroke-emerald-600",
+
+    textClassName: "fill-emerald-700",
   },
 ] as const;
 
-function getCanvasPoint(event: MouseEvent<SVGSVGElement>): Point {
-  const bounds = event.currentTarget.getBoundingClientRect();
+interface SetShapeProps {
+  set: VennSet;
+  className?: string;
+  fill?: SVGProps<SVGCircleElement>["fill"];
+  strokeWidth?: number;
+}
+
+function SetShape({ set, className, fill, strokeWidth }: SetShapeProps) {
+  if (isEllipseSet(set)) {
+    const { radiusX, radiusY } = getSetRadii(set);
+
+    return (
+      <ellipse
+        className={className}
+        cx={set.position.x}
+        cy={set.position.y}
+        fill={fill}
+        rx={radiusX}
+        ry={radiusY}
+        strokeWidth={strokeWidth}
+        transform={`rotate(${set.rotation ?? 0} ${set.position.x} ${set.position.y})`}
+      />
+    );
+  }
+
+  return (
+    <circle
+      className={className}
+      cx={set.position.x}
+      cy={set.position.y}
+      fill={fill}
+      r={set.radius}
+      strokeWidth={strokeWidth}
+    />
+  );
+}
+
+function getCanvasPoint(event: MouseEvent<SVGSVGElement>): Point | null {
+  const svg = event.currentTarget;
+  const screenMatrix = svg.getScreenCTM();
+
+  if (!screenMatrix) {
+    return null;
+  }
+
+  const screenPoint = svg.createSVGPoint();
+
+  screenPoint.x = event.clientX;
+  screenPoint.y = event.clientY;
+
+  const canvasPoint = screenPoint.matrixTransform(screenMatrix.inverse());
 
   return {
-    x: ((event.clientX - bounds.left) / bounds.width) * VENN_CANVAS_SIZE.width,
-
-    y: ((event.clientY - bounds.top) / bounds.height) * VENN_CANVAS_SIZE.height,
+    x: canvasPoint.x,
+    y: canvasPoint.y,
   };
+}
+
+function getBoundaryDistance(set: VennSet, direction: Point): number {
+  if (!isEllipseSet(set)) {
+    return set.radius;
+  }
+
+  const { radiusX, radiusY } = getSetRadii(set);
+
+  const directionLength = Math.hypot(direction.x, direction.y) || 1;
+
+  const unitX = direction.x / directionLength;
+
+  const unitY = direction.y / directionLength;
+
+  const rotation = ((set.rotation ?? 0) * Math.PI) / 180;
+
+  const localX = unitX * Math.cos(rotation) + unitY * Math.sin(rotation);
+
+  const localY = -unitX * Math.sin(rotation) + unitY * Math.cos(rotation);
+
+  return (
+    1 / Math.sqrt((localX * localX) / (radiusX * radiusX) + (localY * localY) / (radiusY * radiusY))
+  );
 }
 
 function getSetLabelPosition(sets: VennSet[], setIndex: number): Point {
@@ -65,12 +149,15 @@ function getSetLabelPosition(sets: VennSet[], setIndex: number): Point {
 
   const direction = {
     x: set.position.x - otherCenter.x,
+
     y: set.position.y - otherCenter.y,
   };
 
   const directionLength = Math.hypot(direction.x, direction.y) || 1;
 
-  const labelDistance = set.radius * 0.68;
+  const boundaryDistance = getBoundaryDistance(set, direction);
+
+  const labelDistance = boundaryDistance * 0.72;
 
   return {
     x: set.position.x + (direction.x / directionLength) * labelDistance,
@@ -89,6 +176,10 @@ export function VennCanvas() {
   function handleCanvasClick(event: MouseEvent<SVGSVGElement>) {
     const point = getCanvasPoint(event);
 
+    if (!point) {
+      return;
+    }
+
     const region = getRegionAtPoint(diagram, point);
 
     toggleRegionSelection(region.id);
@@ -97,7 +188,7 @@ export function VennCanvas() {
   return (
     <svg
       aria-label="Diagrama de Venn interactivo"
-      className="canvas-grid block h-full w-auto max-w-full overflow-hidden rounded-xl border border-border bg-background shadow-sm"
+      className="canvas-grid block h-full w-auto max-w-full cursor-crosshair overflow-hidden rounded-xl border border-border bg-background shadow-sm"
       height={VENN_CANVAS_SIZE.height}
       onClick={handleCanvasClick}
       preserveAspectRatio="xMidYMid meet"
@@ -111,7 +202,6 @@ export function VennCanvas() {
         width={VENN_CANVAS_SIZE.width}
       />
 
-      {/* Colores normales de los conjuntos */}
       <g pointerEvents="none">
         {diagram.sets.map((set, index) => {
           const style = SET_STYLES[index];
@@ -120,22 +210,12 @@ export function VennCanvas() {
             return null;
           }
 
-          return (
-            <circle
-              className={style.fillClassName}
-              cx={set.position.x}
-              cy={set.position.y}
-              key={set.id}
-              r={set.radius}
-            />
-          );
+          return <SetShape className={style.fillClassName} key={set.id} set={set} />;
         })}
       </g>
 
-      {/* Color aplicado únicamente a las regiones seleccionadas */}
       <VennRegionFill diagram={diagram} selectedRegionIds={selectedRegionIds} />
 
-      {/* Bordes y nombres sin cambios visuales */}
       <g pointerEvents="none">
         {diagram.sets.map((set, index) => {
           const style = SET_STYLES[index];
@@ -148,14 +228,7 @@ export function VennCanvas() {
 
           return (
             <g key={set.id}>
-              <circle
-                className={style.strokeClassName}
-                cx={set.position.x}
-                cy={set.position.y}
-                fill="none"
-                r={set.radius}
-                strokeWidth={4}
-              />
+              <SetShape className={style.strokeClassName} fill="none" set={set} strokeWidth={4} />
 
               <text
                 className={`${style.textClassName} text-3xl font-bold`}

@@ -157,7 +157,7 @@ function tokenize(source: string): Token[] {
       continue;
     }
 
-    if (character === "'" || character === "′") {
+    if (character === "'" || character === "′" || character === "ᶜ") {
       tokens.push({
         type: "complement-postfix",
         position,

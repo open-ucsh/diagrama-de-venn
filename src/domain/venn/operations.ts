@@ -1,15 +1,19 @@
+import { createCircleSetLayout, createFourSetEllipseLayout } from "./factories";
+
 import type { Point, VennDiagram, VennElement, VennSet } from "./models";
 
-export const MAX_SETS = 3;
+export const MAX_SETS = 4;
 export const MIN_SETS = 1;
 
 function withUpdatedSets(diagram: VennDiagram, sets: VennSet[]): VennDiagram {
   return {
     ...diagram,
+
     metadata: {
       ...diagram.metadata,
       updatedAt: new Date().toISOString(),
     },
+
     sets,
   };
 }
@@ -17,10 +21,12 @@ function withUpdatedSets(diagram: VennDiagram, sets: VennSet[]): VennDiagram {
 function withUpdatedElements(diagram: VennDiagram, elements: VennElement[]): VennDiagram {
   return {
     ...diagram,
+
     metadata: {
       ...diagram.metadata,
       updatedAt: new Date().toISOString(),
     },
+
     elements,
   };
 }
@@ -58,7 +64,11 @@ export function addSet(diagram: VennDiagram, set: VennSet): VennDiagram {
     throw new Error(`Un diagrama puede tener como máximo ${MAX_SETS} conjuntos.`);
   }
 
-  return withUpdatedSets(diagram, [...diagram.sets, set]);
+  const nextSets = [...diagram.sets, set];
+
+  const arrangedSets = nextSets.length === 4 ? createFourSetEllipseLayout(nextSets) : nextSets;
+
+  return withUpdatedSets(diagram, arrangedSets);
 }
 
 export function renameSet(diagram: VennDiagram, setId: string, name: string): VennDiagram {
@@ -72,7 +82,15 @@ export function renameSet(diagram: VennDiagram, setId: string, name: string): Ve
 
   return withUpdatedSets(
     diagram,
-    diagram.sets.map((set) => (set.id === setId ? { ...set, name: trimmedName } : set)),
+
+    diagram.sets.map((set) =>
+      set.id === setId
+        ? {
+            ...set,
+            name: trimmedName,
+          }
+        : set,
+    ),
   );
 }
 
@@ -81,7 +99,17 @@ export function moveSet(diagram: VennDiagram, setId: string, position: Point): V
 
   return withUpdatedSets(
     diagram,
-    diagram.sets.map((set) => (set.id === setId ? { ...set, position: { ...position } } : set)),
+
+    diagram.sets.map((set) =>
+      set.id === setId
+        ? {
+            ...set,
+            position: {
+              ...position,
+            },
+          }
+        : set,
+    ),
   );
 }
 
@@ -92,16 +120,19 @@ export function removeSet(diagram: VennDiagram, setId: string): VennDiagram {
 
   requireSet(diagram, setId);
 
+  const remainingSets = diagram.sets.filter((set) => set.id !== setId);
+
+  const nextSets = diagram.sets.length === 4 ? createCircleSetLayout(remainingSets) : remainingSets;
+
   const elements = diagram.elements.map((element) => ({
     ...element,
+
     setIds: element.setIds.filter((elementSetId) => elementSetId !== setId),
   }));
 
   return {
-    ...withUpdatedSets(
-      diagram,
-      diagram.sets.filter((set) => set.id !== setId),
-    ),
+    ...withUpdatedSets(diagram, nextSets),
+
     elements,
   };
 }
@@ -113,7 +144,17 @@ export function addElement(diagram: VennDiagram, element: VennElement): VennDiag
 
   const setIds = validateSetMemberships(diagram, element.setIds);
 
-  return withUpdatedElements(diagram, [...diagram.elements, { ...element, setIds }]);
+  return withUpdatedElements(
+    diagram,
+
+    [
+      ...diagram.elements,
+      {
+        ...element,
+        setIds,
+      },
+    ],
+  );
 }
 
 export function renameElement(diagram: VennDiagram, elementId: string, label: string): VennDiagram {
@@ -127,8 +168,14 @@ export function renameElement(diagram: VennDiagram, elementId: string, label: st
 
   return withUpdatedElements(
     diagram,
+
     diagram.elements.map((element) =>
-      element.id === elementId ? { ...element, label: trimmedLabel } : element,
+      element.id === elementId
+        ? {
+            ...element,
+            label: trimmedLabel,
+          }
+        : element,
     ),
   );
 }
@@ -144,8 +191,14 @@ export function setElementMembership(
 
   return withUpdatedElements(
     diagram,
+
     diagram.elements.map((element) =>
-      element.id === elementId ? { ...element, setIds: validatedSetIds } : element,
+      element.id === elementId
+        ? {
+            ...element,
+            setIds: validatedSetIds,
+          }
+        : element,
     ),
   );
 }
@@ -155,6 +208,7 @@ export function removeElement(diagram: VennDiagram, elementId: string): VennDiag
 
   return withUpdatedElements(
     diagram,
+
     diagram.elements.filter((element) => element.id !== elementId),
   );
 }

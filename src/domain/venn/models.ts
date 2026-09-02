@@ -3,11 +3,17 @@ export interface Point {
   y: number;
 }
 
+export type VennSetShape = "circle" | "ellipse";
+
 export interface VennSet {
   id: string;
   name: string;
   position: Point;
   radius: number;
+  shape?: VennSetShape;
+  radiusX?: number;
+  radiusY?: number;
+  rotation?: number;
 }
 
 export interface VennElement {

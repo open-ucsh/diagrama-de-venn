@@ -8,29 +8,43 @@ import { MAX_SETS, MIN_SETS } from "@/domain/venn/operations";
 
 import { useVennStore } from "@/state/venn-store";
 
-const DEFAULT_SET_NAMES = ["A", "B", "C"] as const;
+const DEFAULT_SET_NAMES = ["A", "B", "C", "D"] as const;
 
 const DEFAULT_SET_POSITIONS: Point[] = [
   { x: 370, y: 300 },
   { x: 530, y: 300 },
   { x: 450, y: 420 },
+  { x: 450, y: 300 },
 ];
 
 const SET_STYLES = [
   {
     backgroundClassName: "bg-brand-primary/10",
+
     borderClassName: "border-brand-primary/20",
+
     iconClassName: "text-brand-primary",
   },
   {
     backgroundClassName: "bg-accent/20",
+
     borderClassName: "border-amber-500/20",
+
     iconClassName: "text-amber-700",
   },
   {
     backgroundClassName: "bg-violet-500/10",
+
     borderClassName: "border-violet-500/20",
+
     iconClassName: "text-violet-700",
+  },
+  {
+    backgroundClassName: "bg-emerald-500/10",
+
+    borderClassName: "border-emerald-500/20",
+
+    iconClassName: "text-emerald-700",
   },
 ] as const;
 
@@ -56,13 +70,17 @@ function getNextSetPosition(sets: VennSet[]): Point {
     };
   }
 
-  return remainingPositions.reduce((bestPosition, candidatePosition) => {
-    const bestDistance = getMinimumDistance(bestPosition, sets);
+  return remainingPositions.reduce(
+    (bestPosition, candidatePosition) => {
+      const bestDistance = getMinimumDistance(bestPosition, sets);
 
-    const candidateDistance = getMinimumDistance(candidatePosition, sets);
+      const candidateDistance = getMinimumDistance(candidatePosition, sets);
 
-    return candidateDistance > bestDistance ? candidatePosition : bestPosition;
-  }, firstPosition);
+      return candidateDistance > bestDistance ? candidatePosition : bestPosition;
+    },
+
+    firstPosition,
+  );
 }
 
 function getNextSetName(sets: VennSet[]): string {
@@ -167,7 +185,9 @@ export function SetsPanel() {
                     aria-label={`Nuevo nombre para ${set.name}`}
                     autoFocus
                     className="h-10 min-w-0 flex-1 rounded-lg border-2 border-brand-primary/40 bg-white px-3 font-bold text-ink outline-none transition-colors focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10"
-                    onChange={(event) => setDraftName(event.target.value)}
+                    onChange={(event) => {
+                      setDraftName(event.target.value);
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         saveName(set);
@@ -248,6 +268,16 @@ export function SetsPanel() {
             </article>
           );
         })}
+
+        {sets.length === 4 && (
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+            <p className="text-xs font-bold text-emerald-800">Diagrama de cuatro conjuntos</p>
+
+            <p className="mt-1 text-xs leading-5 text-text-muted">
+              Los círculos se transformaron en elipses para representar las 16 regiones posibles.
+            </p>
+          </div>
+        )}
 
         <button
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-sm font-bold text-text-muted transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary disabled:cursor-not-allowed disabled:bg-surface disabled:text-text-muted"

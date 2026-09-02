@@ -2,6 +2,7 @@ import type { VennDiagram } from "../models";
 
 import { getCanonicalExpression } from "./canonical-expression";
 import { getSelectedMask } from "./expression-masks";
+import { getMinimizedExpression } from "./expression-minimizer";
 import type { Expression } from "./expression-model";
 import { generateSimpleExpressions } from "./expression-search";
 
@@ -60,6 +61,10 @@ export function getSelectedRegionsExpression(
 ): string | null {
   if (selectedRegionIds.length === 0) {
     return null;
+  }
+
+  if (diagram.sets.length === 4) {
+    return getMinimizedExpression(diagram, selectedRegionIds);
   }
 
   const expressions = getDiagramExpressions(diagram);
