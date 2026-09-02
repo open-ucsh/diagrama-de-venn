@@ -181,13 +181,13 @@ export function ExportMenu() {
       }}
       ref={detailsRef}
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white">
+      <summary className="flex size-9 cursor-pointer list-none items-center justify-center gap-2 rounded-lg text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white sm:h-10 sm:w-auto sm:px-3">
         <Download aria-hidden="true" className="size-4" />
 
         <span className="hidden sm:inline">Exportar</span>
       </summary>
 
-      <div className="absolute top-full right-0 z-40 mt-3 w-72 overflow-hidden rounded-xl border border-border bg-white text-text shadow-xl">
+      <div className="fixed top-16 right-3 left-3 z-50 overflow-hidden rounded-xl border border-border bg-white text-text shadow-xl sm:absolute sm:top-full sm:right-0 sm:left-auto sm:mt-3 sm:w-72">
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Exportar</p>

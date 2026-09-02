@@ -100,17 +100,17 @@ export function EditorHeader() {
   }
 
   return (
-    <header className="shrink-0 border-b-4 border-accent bg-brand-primary px-5 py-4 text-white sm:px-8">
-      <div className="mx-auto flex max-w-screen-2xl items-center gap-4 sm:gap-5">
+    <header className="sticky top-0 z-50 shrink-0 border-b-4 border-accent bg-brand-primary px-3 py-3 text-white sm:px-6 sm:py-4 lg:px-8">
+      <div className="mx-auto flex max-w-screen-2xl items-center gap-2 sm:gap-4">
         <img
           alt="Universidad Católica Silva Henríquez"
-          className="h-12 w-auto shrink-0 object-contain"
+          className="hidden h-12 w-auto shrink-0 object-contain sm:block"
           src="/logo.png"
         />
 
         <div aria-hidden="true" className="hidden h-10 w-px bg-white/20 sm:block" />
 
-        <FileText aria-hidden="true" className="hidden size-5 shrink-0 text-white/80 sm:block" />
+        <FileText aria-hidden="true" className="size-5 shrink-0 text-white/80" />
 
         <div className="min-w-0 flex-1">
           {isEditing ? (
@@ -118,7 +118,7 @@ export function EditorHeader() {
               aria-label="Nombre del diagrama"
               autoComplete="off"
               autoFocus
-              className="h-10 w-full max-w-md rounded-md border border-white/50 bg-white/10 px-2 text-base font-bold text-white outline-none transition-colors placeholder:text-white/40 focus:border-white focus:bg-white/15 sm:text-lg"
+              className="h-9 w-full rounded-md border border-white/50 bg-white/10 px-2 text-sm font-bold text-white outline-none transition-colors placeholder:text-white/40 focus:border-white focus:bg-white/15 sm:h-10 sm:max-w-md sm:text-lg"
               onBlur={saveName}
               onChange={(event) => {
                 setDraftName(event.target.value);
@@ -143,7 +143,7 @@ export function EditorHeader() {
             />
           ) : (
             <button
-              className="block max-w-full rounded-md px-2 py-1 text-left text-base font-bold tracking-tight text-white transition-colors hover:bg-white/10 sm:text-lg"
+              className="block max-w-full rounded-md px-2 py-1.5 text-left text-sm font-bold tracking-tight text-white transition-colors hover:bg-white/10 sm:text-lg"
               onClick={startEditing}
               title="Cambiar nombre del diagrama"
               type="button"
@@ -153,31 +153,31 @@ export function EditorHeader() {
           )}
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
           <ExportMenu />
 
-          <span aria-hidden="true" className="mx-1 h-7 w-px bg-white/20" />
+          <span aria-hidden="true" className="mx-0.5 h-6 w-px bg-white/20 sm:mx-1 sm:h-7" />
 
           <button
             aria-label="Deshacer"
-            className="grid size-10 place-items-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+            className="grid size-9 place-items-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 sm:size-10"
             disabled={!canUndo}
             onClick={undo}
             title="Deshacer (Ctrl + Z)"
             type="button"
           >
-            <Undo2 aria-hidden="true" className="size-5" />
+            <Undo2 aria-hidden="true" className="size-4 sm:size-5" />
           </button>
 
           <button
             aria-label="Rehacer"
-            className="grid size-10 place-items-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+            className="grid size-9 place-items-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 sm:size-10"
             disabled={!canRedo}
             onClick={redo}
             title="Rehacer (Ctrl + Shift + Z)"
             type="button"
           >
-            <Redo2 aria-hidden="true" className="size-5" />
+            <Redo2 aria-hidden="true" className="size-4 sm:size-5" />
           </button>
         </div>
       </div>
