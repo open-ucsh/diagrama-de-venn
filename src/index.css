@@ -4,15 +4,12 @@
   --color-brand-primary: #004574;
   --color-brand-primary-hover: #005b98;
   --color-accent: #f2c100;
-
   --color-background: #ffffff;
   --color-surface: #f7f8fa;
   --color-surface-hover: #edf2f7;
   --color-border: #d7dee7;
-
   --color-text: #17324d;
   --color-text-muted: #6b7280;
-
   --font-sans: Ubuntu, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
@@ -20,10 +17,18 @@ html,
 body,
 #root {
   min-height: 100%;
+  width: 100%;
+  max-width: 100%;
+}
+
+html {
+  overflow-x: hidden;
 }
 
 body {
+  min-width: 20rem;
   min-height: 100vh;
+  overflow-x: hidden;
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-sans);
@@ -31,8 +36,10 @@ body {
 
 .canvas-grid {
   background-color: var(--color-background);
+
   background-image:
     linear-gradient(to right, rgb(215 222 231 / 45%) 1px, transparent 1px),
     linear-gradient(to bottom, rgb(215 222 231 / 45%) 1px, transparent 1px);
+
   background-size: 24px 24px;
 }

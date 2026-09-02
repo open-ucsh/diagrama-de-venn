@@ -247,7 +247,7 @@ export function VennCanvas() {
   return (
     <svg
       aria-label="Diagrama de Venn interactivo"
-      className="canvas-grid block h-full w-auto max-w-full cursor-crosshair overflow-hidden rounded-xl border border-border bg-background shadow-sm"
+      className="canvas-grid block h-auto w-full max-w-full cursor-crosshair touch-manipulation overflow-hidden rounded-xl border border-border bg-background shadow-sm select-none lg:h-full lg:w-auto"
       height={VENN_CANVAS_SIZE.height}
       onClick={handleCanvasClick}
       onMouseLeave={handleCanvasMouseLeave}
