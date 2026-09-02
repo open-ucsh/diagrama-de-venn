@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { Check, Circle, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Circle, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { DEFAULT_SET_COLORS } from "@/domain/venn/factories";
 
@@ -81,12 +81,16 @@ export function SetsPanel() {
 
   const canRemoveSet = sets.length > MIN_SETS;
 
+  const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
+
   function handleCreateSet() {
     if (!canCreateSet) {
       return;
     }
 
     createSet(getNextSetName(sets), getNextSetPosition(sets));
+
+    setIsMobilePanelOpen(true);
   }
 
   function startEditing(set: VennSet) {
@@ -128,12 +132,53 @@ export function SetsPanel() {
   }
 
   return (
-    <aside className="min-h-0 overflow-y-auto border-b border-border bg-white lg:border-r lg:border-b-0">
-      <header className="border-b border-border px-6 py-5">
-        <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Conjuntos</p>
+    <aside className="shrink-0 border-b border-border bg-white lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
+      <header className="border-b border-border">
+        <button
+          aria-controls="venn-sets-panel"
+          aria-expanded={isMobilePanelOpen}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left lg:hidden"
+          onClick={() => {
+            setIsMobilePanelOpen((current) => !current);
+          }}
+          type="button"
+        >
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-widest text-text-muted">
+              Conjuntos
+            </span>
+
+            <span className="grid size-6 place-items-center rounded-full bg-brand-primary/10 text-xs font-bold text-brand-primary">
+              {sets.length}
+            </span>
+          </span>
+
+          <span className="text-xs font-medium text-text-muted">
+            {isMobilePanelOpen ? "Ocultar" : "Editar"}
+          </span>
+
+          <ChevronDown
+            aria-hidden="true"
+            className={[
+              "size-5 text-text-muted transition-transform",
+              isMobilePanelOpen ? "rotate-180" : "",
+            ].join(" ")}
+          />
+        </button>
+
+        <div className="hidden px-6 py-5 lg:block">
+          <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Conjuntos</p>
+        </div>
       </header>
 
-      <div className="space-y-2 p-4">
+      <div
+        className={[
+          "max-h-96 space-y-2 overflow-y-auto p-4",
+          isMobilePanelOpen ? "block" : "hidden",
+          "lg:block lg:max-h-none lg:overflow-visible",
+        ].join(" ")}
+        id="venn-sets-panel"
+      >
         {sets.map((set, index) => {
           const isEditing = editingSetId === set.id;
 
