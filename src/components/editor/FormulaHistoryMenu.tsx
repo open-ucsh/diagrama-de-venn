@@ -44,17 +44,21 @@ export function FormulaHistoryMenu({ formulas, isAvailable, onClear, onDelete, o
 
   return (
     <details className="group relative" ref={detailsRef}>
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-text-muted transition-colors hover:bg-surface hover:text-ink">
+      <summary
+        aria-label="Abrir historial de fórmulas"
+        className="relative flex size-9 cursor-pointer list-none items-center justify-center gap-2 rounded-lg text-sm font-bold text-text-muted transition-colors hover:bg-surface hover:text-text sm:h-auto sm:w-auto sm:px-3 sm:py-2"
+        title="Historial de fórmulas"
+      >
         <Clock3 aria-hidden="true" className="size-4" />
-        Historial
+        <span className="hidden sm:inline">Historial</span>
         {formulas.length > 0 && (
-          <span className="grid size-5 place-items-center rounded-full bg-brand-primary/10 text-xs text-brand-primary">
+          <span className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-brand-primary text-xs font-bold text-white sm:static sm:size-5 sm:bg-brand-primary/10 sm:text-brand-primary">
             {formulas.length}
           </span>
         )}
       </summary>
 
-      <div className="absolute top-full right-0 z-30 mt-2 w-72 overflow-hidden rounded-xl border border-border bg-white shadow-xl sm:w-96">
+      <div className="fixed top-20 right-3 left-3 z-50 overflow-hidden rounded-xl border border-border bg-white shadow-xl sm:absolute sm:top-full sm:right-0 sm:left-auto sm:mt-2 sm:w-96">
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-text-muted">

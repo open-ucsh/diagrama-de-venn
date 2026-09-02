@@ -291,8 +291,8 @@ export function FormulaBar() {
       aria-label="Editor de fórmula"
       className="rounded-xl border border-border bg-white shadow-sm"
     >
-      <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-5">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
+      <div className="flex min-w-0 items-center gap-2 px-3 py-3 sm:gap-3 sm:px-5 sm:py-4">
+        <span className="hidden size-11 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary sm:flex">
           <Sigma aria-hidden="true" className="size-6" />
         </span>
 
@@ -311,7 +311,7 @@ export function FormulaBar() {
               aria-invalid={Boolean(error)}
               autoComplete="off"
               className={[
-                "w-full border-0 bg-transparent pr-10 font-mono text-lg font-bold text-ink outline-none",
+                "min-w-0 w-full border-0 bg-transparent pr-8 font-mono text-base font-bold text-text outline-none sm:pr-10 sm:text-lg",
                 "placeholder:font-sans placeholder:text-sm placeholder:font-normal placeholder:text-text-muted",
               ].join(" ")}
               id="venn-formula"
@@ -373,40 +373,53 @@ export function FormulaBar() {
 
         {(hasFormula || selectedRegionIds.length > 0) && (
           <button
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-text-muted transition-colors hover:bg-surface hover:text-ink"
+            aria-label="Limpiar fórmula"
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text sm:h-auto sm:w-auto sm:gap-2 sm:px-3 sm:py-2"
             onClick={clearFormula}
+            title="Limpiar fórmula"
             type="button"
           >
             <X aria-hidden="true" className="size-4" />
-            Limpiar
+
+            <span className="hidden sm:inline">Limpiar</span>
           </button>
         )}
       </div>
+      <div className="border-t border-border px-3 py-3 sm:px-5">
+        <div className="mb-2 flex items-center justify-between sm:mb-0">
+          <span className="text-xs font-bold uppercase tracking-widest text-text-muted sm:hidden">
+            Insertar operador
+          </span>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3 sm:px-5">
-        <span className="mr-1 text-xs font-bold uppercase tracking-widest text-text-muted">
-          Insertar
-        </span>
+          <span className="text-xs text-text-muted sm:hidden">| &amp; ! -</span>
+        </div>
 
-        {FORMULA_SYMBOLS.map((symbol) => (
-          <button
-            className="flex size-9 items-center justify-center rounded-lg border border-border bg-white font-mono text-base font-bold text-ink transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary"
-            key={symbol.title}
-            onMouseDown={(event) => {
-              event.preventDefault();
-            }}
-            onClick={() => {
-              insertSymbol(symbol.value);
-            }}
-            title={symbol.title}
-            type="button"
-          >
-            {symbol.label}
-          </button>
-        ))}
+        <div className="grid grid-cols-7 gap-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+          <span className="mr-1 hidden text-xs font-bold uppercase tracking-widest text-text-muted sm:block">
+            Insertar
+          </span>
 
-        <div className="ml-auto hidden text-xs text-text-muted md:block">
-          También puedes usar <code className="font-mono font-bold">| &amp; ! -</code>
+          {FORMULA_SYMBOLS.map((symbol) => (
+            <button
+              aria-label={symbol.title}
+              className="flex h-9 w-full items-center justify-center rounded-lg border border-border bg-white font-mono text-base font-bold text-text transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary sm:size-9"
+              key={symbol.title}
+              onMouseDown={(event) => {
+                event.preventDefault();
+              }}
+              onClick={() => {
+                insertSymbol(symbol.value);
+              }}
+              title={symbol.title}
+              type="button"
+            >
+              {symbol.label}
+            </button>
+          ))}
+
+          <div className="ml-auto hidden text-xs text-text-muted md:block">
+            También puedes usar <code className="font-mono font-bold">| &amp; ! -</code>
+          </div>
         </div>
       </div>
     </section>
