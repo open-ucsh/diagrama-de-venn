@@ -14,6 +14,8 @@ export interface VennSet {
   radiusX?: number;
   radiusY?: number;
   rotation?: number;
+  color?: string;
+  hidden?: boolean;
 }
 
 export interface VennElement {

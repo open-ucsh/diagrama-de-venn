@@ -2,6 +2,8 @@ import type { Point, VennDiagram, VennElement, VennSet } from "./models";
 
 export const DEFAULT_SET_RADIUS = 160;
 
+export const DEFAULT_SET_COLORS = ["#004574", "#f59e0b", "#7c3aed", "#059669"] as const;
+
 const CIRCLE_LAYOUTS: Record<number, Point[]> = {
   1: [{ x: 450, y: 300 }],
 
@@ -44,7 +46,12 @@ const FOUR_SET_ELLIPSE_LAYOUT = [
   },
 ] as const;
 
-export function createVennSet(name: string, position: Point, radius = DEFAULT_SET_RADIUS): VennSet {
+export function createVennSet(
+  name: string,
+  position: Point,
+  radius = DEFAULT_SET_RADIUS,
+  color = DEFAULT_SET_COLORS[0],
+): VennSet {
   return {
     id: crypto.randomUUID(),
     name,
@@ -54,6 +61,8 @@ export function createVennSet(name: string, position: Point, radius = DEFAULT_SE
     radiusX: radius,
     radiusY: radius,
     rotation: 0,
+    color,
+    hidden: false,
   };
 }
 
@@ -137,6 +146,8 @@ export function createInitialDiagram(name = "Diagrama sin título"): VennDiagram
       radiusX: DEFAULT_SET_RADIUS,
       radiusY: DEFAULT_SET_RADIUS,
       rotation: 0,
+      color: DEFAULT_SET_COLORS[0],
+      hidden: false,
     },
     {
       id: "set-b",
@@ -147,6 +158,8 @@ export function createInitialDiagram(name = "Diagrama sin título"): VennDiagram
       radiusX: DEFAULT_SET_RADIUS,
       radiusY: DEFAULT_SET_RADIUS,
       rotation: 0,
+      color: DEFAULT_SET_COLORS[1],
+      hidden: false,
     },
   ];
 

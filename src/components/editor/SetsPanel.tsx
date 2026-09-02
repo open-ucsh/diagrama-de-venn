@@ -1,6 +1,8 @@
 import { useState } from "react";
 
-import { Check, Circle, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Circle, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
+
+import { DEFAULT_SET_COLORS } from "@/domain/venn/factories";
 
 import type { Point, VennSet } from "@/domain/venn/models";
 
@@ -16,37 +18,6 @@ const DEFAULT_SET_POSITIONS: Point[] = [
   { x: 450, y: 420 },
   { x: 450, y: 300 },
 ];
-
-const SET_STYLES = [
-  {
-    backgroundClassName: "bg-brand-primary/10",
-
-    borderClassName: "border-brand-primary/20",
-
-    iconClassName: "text-brand-primary",
-  },
-  {
-    backgroundClassName: "bg-accent/20",
-
-    borderClassName: "border-amber-500/20",
-
-    iconClassName: "text-amber-700",
-  },
-  {
-    backgroundClassName: "bg-violet-500/10",
-
-    borderClassName: "border-violet-500/20",
-
-    iconClassName: "text-violet-700",
-  },
-  {
-    backgroundClassName: "bg-emerald-500/10",
-
-    borderClassName: "border-emerald-500/20",
-
-    iconClassName: "text-emerald-700",
-  },
-] as const;
 
 function getDistance(first: Point, second: Point): number {
   return Math.hypot(first.x - second.x, first.y - second.y);
@@ -70,23 +41,23 @@ function getNextSetPosition(sets: VennSet[]): Point {
     };
   }
 
-  return remainingPositions.reduce(
-    (bestPosition, candidatePosition) => {
-      const bestDistance = getMinimumDistance(bestPosition, sets);
+  return remainingPositions.reduce((bestPosition, candidatePosition) => {
+    const bestDistance = getMinimumDistance(bestPosition, sets);
 
-      const candidateDistance = getMinimumDistance(candidatePosition, sets);
+    const candidateDistance = getMinimumDistance(candidatePosition, sets);
 
-      return candidateDistance > bestDistance ? candidatePosition : bestPosition;
-    },
-
-    firstPosition,
-  );
+    return candidateDistance > bestDistance ? candidatePosition : bestPosition;
+  }, firstPosition);
 }
 
 function getNextSetName(sets: VennSet[]): string {
   const usedNames = new Set(sets.map((set) => set.name.trim().toUpperCase()));
 
   return DEFAULT_SET_NAMES.find((name) => !usedNames.has(name)) ?? `Conjunto ${sets.length + 1}`;
+}
+
+function getSetColor(set: VennSet, index: number): string {
+  return set.color ?? DEFAULT_SET_COLORS[index] ?? DEFAULT_SET_COLORS[0];
 }
 
 export function SetsPanel() {
@@ -97,6 +68,10 @@ export function SetsPanel() {
   const renameSet = useVennStore((state) => state.renameSet);
 
   const removeSet = useVennStore((state) => state.removeSet);
+
+  const setSetColor = useVennStore((state) => state.setSetColor);
+
+  const toggleSetVisibility = useVennStore((state) => state.toggleSetVisibility);
 
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
 
@@ -160,23 +135,26 @@ export function SetsPanel() {
 
       <div className="space-y-2 p-4">
         {sets.map((set, index) => {
-          const style = SET_STYLES[index];
-
-          if (!style) {
-            return null;
-          }
-
           const isEditing = editingSetId === set.id;
+
+          const color = getSetColor(set, index);
 
           return (
             <article
-              className="group rounded-xl border border-border bg-white p-3 transition-colors hover:border-brand-primary/30 hover:bg-surface/50"
+              className={`group rounded-xl border border-border bg-white p-3 transition-colors hover:border-brand-primary/30 hover:bg-surface/50 ${
+                set.hidden ? "opacity-70" : ""
+              }`}
               key={set.id}
             >
               {isEditing ? (
                 <div className="flex items-center gap-2">
                   <span
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-xl border ${style.borderClassName} ${style.backgroundClassName} ${style.iconClassName}`}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-xl border"
+                    style={{
+                      backgroundColor: `${color}14`,
+                      borderColor: `${color}40`,
+                      color,
+                    }}
                   >
                     <Circle aria-hidden="true" className="size-5" />
                   </span>
@@ -202,7 +180,7 @@ export function SetsPanel() {
 
                   <button
                     aria-label="Cancelar edición"
-                    className="grid size-9 shrink-0 place-items-center rounded-lg text-text-muted transition-colors hover:bg-white hover:text-ink"
+                    className="grid size-9 shrink-0 place-items-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-ink"
                     onClick={cancelEditing}
                     title="Cancelar"
                     type="button"
@@ -223,21 +201,56 @@ export function SetsPanel() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <span
-                    className={`flex size-11 shrink-0 items-center justify-center rounded-xl border ${style.borderClassName} ${style.backgroundClassName} ${style.iconClassName}`}
+                  <label
+                    className="relative flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-transform active:scale-95"
+                    style={{
+                      backgroundColor: `${color}14`,
+                      borderColor: `${color}40`,
+                      color,
+                    }}
+                    title={`Cambiar color de ${set.name}`}
                   >
                     <Circle aria-hidden="true" className="size-5" />
-                  </span>
+
+                    <input
+                      aria-label={`Cambiar color del conjunto ${set.name}`}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                      onChange={(event) => {
+                        setSetColor(set.id, event.target.value);
+                      }}
+                      type="color"
+                      value={color}
+                    />
+                  </label>
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-base font-bold text-ink">{set.name}</p>
 
                     <p className="mt-0.5 text-xs font-medium text-text-muted">
                       Conjunto {index + 1}
+                      {set.hidden ? " · oculto" : ""}
                     </p>
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      aria-label={
+                        set.hidden ? `Mostrar conjunto ${set.name}` : `Ocultar conjunto ${set.name}`
+                      }
+                      className="grid size-9 place-items-center rounded-lg text-text-muted transition-colors hover:bg-surface-hover hover:text-ink"
+                      onClick={() => {
+                        toggleSetVisibility(set.id);
+                      }}
+                      title={set.hidden ? "Mostrar conjunto" : "Ocultar temporalmente"}
+                      type="button"
+                    >
+                      {set.hidden ? (
+                        <EyeOff aria-hidden="true" className="size-4" />
+                      ) : (
+                        <Eye aria-hidden="true" className="size-4" />
+                      )}
+                    </button>
+
                     <button
                       aria-label={`Renombrar conjunto ${set.name}`}
                       className="grid size-9 place-items-center rounded-lg text-text-muted transition-colors hover:bg-brand-primary/10 hover:text-brand-primary"

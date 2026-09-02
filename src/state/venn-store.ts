@@ -2,7 +2,12 @@ import { create } from "zustand";
 
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { createInitialDiagram, createVennElement, createVennSet } from "@/domain/venn/factories";
+import {
+  createInitialDiagram,
+  createVennElement,
+  createVennSet,
+  DEFAULT_SET_COLORS,
+} from "@/domain/venn/factories";
 
 import type { Point, VennDiagram } from "@/domain/venn/models";
 
@@ -95,6 +100,10 @@ interface VennStore {
   setElementMembership: (elementId: string, setIds: string[]) => void;
 
   removeElement: (elementId: string) => void;
+
+  setSetColor: (setId: string, color: string) => void;
+
+  toggleSetVisibility: (setId: string) => void;
 }
 
 export const useVennStore = create<VennStore>()(
@@ -140,7 +149,9 @@ export const useVennStore = create<VennStore>()(
 
       createSet: (name, position) =>
         set((state) => {
-          const newSet = createVennSet(name, position);
+          const color = DEFAULT_SET_COLORS[state.diagram.sets.length] ?? DEFAULT_SET_COLORS[0];
+
+          const newSet = createVennSet(name, position, undefined, color);
 
           return {
             diagram: addSet(state.diagram, newSet),
@@ -159,6 +170,48 @@ export const useVennStore = create<VennStore>()(
           diagram: renameSet(state.diagram, setId, name),
 
           selectedRegionIds: [],
+        })),
+
+      setSetColor: (setId, color) =>
+        set((state) => ({
+          diagram: {
+            ...state.diagram,
+
+            metadata: {
+              ...state.diagram.metadata,
+              updatedAt: new Date().toISOString(),
+            },
+
+            sets: state.diagram.sets.map((set) =>
+              set.id === setId
+                ? {
+                    ...set,
+                    color,
+                  }
+                : set,
+            ),
+          },
+        })),
+
+      toggleSetVisibility: (setId) =>
+        set((state) => ({
+          diagram: {
+            ...state.diagram,
+
+            metadata: {
+              ...state.diagram.metadata,
+              updatedAt: new Date().toISOString(),
+            },
+
+            sets: state.diagram.sets.map((set) =>
+              set.id === setId
+                ? {
+                    ...set,
+                    hidden: !set.hidden,
+                  }
+                : set,
+            ),
+          },
         })),
 
       moveSet: (setId, position) =>

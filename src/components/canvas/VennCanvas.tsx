@@ -10,33 +10,18 @@ import { useVennStore } from "@/state/venn-store";
 
 import { VennRegionFill } from "./VennRegionFill";
 
-const SET_STYLES = [
-  {
-    fillClassName: "fill-brand-primary/10",
-    strokeClassName: "stroke-brand-primary",
-    textClassName: "fill-brand-primary",
-  },
-  {
-    fillClassName: "fill-accent/25",
-    strokeClassName: "stroke-amber-500",
-    textClassName: "fill-amber-700",
-  },
-  {
-    fillClassName: "fill-violet-500/10",
-    strokeClassName: "stroke-violet-600",
-    textClassName: "fill-violet-700",
-  },
-  {
-    fillClassName: "fill-emerald-500/10",
-    strokeClassName: "stroke-emerald-600",
-    textClassName: "fill-emerald-700",
-  },
-] as const;
+const DEFAULT_COLORS = ["#004574", "#f59e0b", "#7c3aed", "#059669"] as const;
+
+function getSetColor(set: VennSet, index: number): string {
+  return set.color ?? DEFAULT_COLORS[index] ?? DEFAULT_COLORS[0];
+}
 
 interface SetShapeProps {
   set: VennSet;
   className?: string;
   fill?: SVGProps<SVGCircleElement>["fill"];
+  fillOpacity?: number;
+  stroke?: string;
   strokeWidth?: number;
 }
 
@@ -44,7 +29,7 @@ interface RegionTooltipProps {
   formula: string;
 }
 
-function SetShape({ set, className, fill, strokeWidth }: SetShapeProps) {
+function SetShape({ set, className, fill, fillOpacity, stroke, strokeWidth }: SetShapeProps) {
   if (isEllipseSet(set)) {
     const { radiusX, radiusY } = getSetRadii(set);
 
@@ -58,6 +43,8 @@ function SetShape({ set, className, fill, strokeWidth }: SetShapeProps) {
         ry={radiusY}
         strokeWidth={strokeWidth}
         transform={`rotate(${set.rotation ?? 0} ${set.position.x} ${set.position.y})`}
+        fillOpacity={fillOpacity}
+        stroke={stroke}
       />
     );
   }
@@ -70,6 +57,8 @@ function SetShape({ set, className, fill, strokeWidth }: SetShapeProps) {
       fill={fill}
       r={set.radius}
       strokeWidth={strokeWidth}
+      fillOpacity={fillOpacity}
+      stroke={stroke}
     />
   );
 }
@@ -271,13 +260,13 @@ export function VennCanvas() {
 
       <g pointerEvents="none">
         {diagram.sets.map((set, index) => {
-          const style = SET_STYLES[index];
+          const color = getSetColor(set, index);
 
-          if (!style) {
-            return null;
-          }
-
-          return <SetShape className={style.fillClassName} key={set.id} set={set} />;
+          return (
+            <g key={set.id} opacity={set.hidden ? 0.18 : 1}>
+              <SetShape fill={color} fillOpacity={0.1} set={set} />
+            </g>
+          );
         })}
       </g>
 
@@ -289,21 +278,19 @@ export function VennCanvas() {
 
       <g pointerEvents="none">
         {diagram.sets.map((set, index) => {
-          const style = SET_STYLES[index];
-
-          if (!style) {
-            return null;
-          }
+          const color = getSetColor(set, index);
 
           const labelPosition = getSetLabelPosition(diagram.sets, index);
 
           return (
-            <g key={set.id}>
-              <SetShape className={style.strokeClassName} fill="none" set={set} strokeWidth={4} />
+            <g key={set.id} opacity={set.hidden ? 0.18 : 1}>
+              <SetShape fill="none" set={set} stroke={color} strokeWidth={4} />
 
               <text
-                className={`${style.textClassName} text-3xl font-bold`}
                 dominantBaseline="middle"
+                fill={color}
+                fontSize="30"
+                fontWeight="700"
                 paintOrder="stroke"
                 stroke="white"
                 strokeOpacity="0.9"
