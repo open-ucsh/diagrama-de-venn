@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
-import { Check, Clipboard, Download, FileCode2, FileJson, Image, Upload, X } from "lucide-react";
+import {
+  Check,
+  Clipboard,
+  Download,
+  FileCode2,
+  FileJson,
+  Image,
+  Link2,
+  Upload,
+  X,
+} from "lucide-react";
+
+import { createShareUrl } from "@/domain/venn/share-project";
 
 import {
   exportDiagramPng,
@@ -28,6 +40,8 @@ export function ExportMenu() {
   const [isOpen, setIsOpen] = useState(false);
 
   const [copied, setCopied] = useState(false);
+
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const [message, setMessage] = useState<{
     text: string;
@@ -96,6 +110,22 @@ export function ExportMenu() {
       }, 1_500);
     } catch {
       showMessage("No fue posible copiar la fórmula.", "error");
+    }
+  }
+
+  async function copyShareLink() {
+    try {
+      const link = createShareUrl(diagram, selectedRegionIds);
+
+      await navigator.clipboard.writeText(link);
+
+      setCopiedLink(true);
+
+      window.setTimeout(() => {
+        setCopiedLink(false);
+      }, 1_500);
+    } catch {
+      showMessage("No fue posible copiar el enlace.", "error");
     }
   }
 
@@ -256,6 +286,23 @@ export function ExportMenu() {
             )}
 
             <span className="min-w-0 flex-1">{copied ? "Fórmula copiada" : "Copiar fórmula"}</span>
+          </button>
+          <button
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-bold text-text transition-colors hover:bg-surface"
+            onClick={() => {
+              void copyShareLink();
+            }}
+            type="button"
+          >
+            {copiedLink ? (
+              <Check aria-hidden="true" className="size-4 shrink-0 text-emerald-600" />
+            ) : (
+              <Link2 aria-hidden="true" className="size-4 shrink-0 text-brand-primary" />
+            )}
+
+            <span className="min-w-0 flex-1">
+              {copiedLink ? "Enlace copiado" : "Copiar enlace"}
+            </span>
           </button>
         </div>
 

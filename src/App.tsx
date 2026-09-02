@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import { CanvasViewport } from "@/components/canvas/CanvasViewport";
 
 import { EditorHeader } from "@/components/editor/EditorHeader";
@@ -6,7 +8,35 @@ import { FormulaBar } from "@/components/editor/FormulaBar";
 
 import { SetsPanel } from "@/components/editor/SetsPanel";
 
+import { consumeSharedProject } from "@/domain/venn/share-project";
+
+import { useVennStore } from "@/state/venn-store";
+
 function App() {
+  const sharedProjectLoaded = useRef(false);
+
+  const importProject = useVennStore((state) => state.importProject);
+
+  useEffect(() => {
+    if (sharedProjectLoaded.current) {
+      return;
+    }
+
+    sharedProjectLoaded.current = true;
+
+    try {
+      const sharedProject = consumeSharedProject();
+
+      if (!sharedProject) {
+        return;
+      }
+
+      importProject(sharedProject.diagram, sharedProject.selectedRegionIds);
+    } catch (error) {
+      console.error("No fue posible abrir el diagrama compartido.", error);
+    }
+  }, [importProject]);
+
   return (
     <main className="min-h-dvh w-full overflow-x-hidden bg-surface lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden">
       <EditorHeader />
