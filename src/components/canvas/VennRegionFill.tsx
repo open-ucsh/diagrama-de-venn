@@ -151,7 +151,6 @@ export function VennRegionFill({
         return (
           <g key={region.id}>
             <rect
-              data-export-ignore
               className="fill-brand-primary transition-opacity duration-200 ease-out"
               height={VENN_CANVAS_SIZE.height}
               mask={`url(#${maskId})`}
