@@ -2,16 +2,14 @@ import type { Point, VennDiagram, VennElement, VennSet } from "./models";
 
 export const DEFAULT_SET_RADIUS = 160;
 
-export const DEFAULT_SET_COLORS = ["#004574", "#f59e0b", "#7c3aed", "#059669"] as const;
+export const DEFAULT_SET_COLORS = ["#244F80", "#D5A52A", "#278B76", "#55A8B8"] as const;
 
 const CIRCLE_LAYOUTS: Record<number, Point[]> = {
   1: [{ x: 450, y: 300 }],
-
   2: [
     { x: 370, y: 300 },
     { x: 530, y: 300 },
   ],
-
   3: [
     { x: 370, y: 280 },
     { x: 530, y: 280 },
@@ -83,7 +81,6 @@ export function createCircleSetLayout(sets: VennSet[]): VennSet[] {
   return sets.map((set, index) => ({
     ...set,
     position: positions[index] ?? set.position,
-
     shape: "circle",
     radius: DEFAULT_SET_RADIUS,
     radiusX: DEFAULT_SET_RADIUS,
@@ -93,23 +90,16 @@ export function createCircleSetLayout(sets: VennSet[]): VennSet[] {
 }
 
 export function createFourSetEllipseLayout(sets: VennSet[]): VennSet[] {
-  if (sets.length !== 4) {
-    return sets;
-  }
+  if (sets.length !== 4) return sets;
 
   return sets.map((set, index) => {
     const layout = FOUR_SET_ELLIPSE_LAYOUT[index];
 
-    if (!layout) {
-      return set;
-    }
+    if (!layout) return set;
 
     return {
       ...set,
-      position: {
-        ...layout.position,
-      },
-
+      position: { ...layout.position },
       shape: "ellipse",
       radius: DEFAULT_SET_RADIUS,
       radiusX: layout.radiusX,
@@ -165,13 +155,11 @@ export function createInitialDiagram(name = "Diagrama de Venn"): VennDiagram {
 
   return {
     id: crypto.randomUUID(),
-
     metadata: {
       name,
       createdAt: now,
       updatedAt: now,
     },
-
     sets: initialSets,
     elements: [],
   };
