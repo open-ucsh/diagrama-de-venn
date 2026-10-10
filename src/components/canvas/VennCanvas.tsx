@@ -1,24 +1,24 @@
 import { useState, type MouseEvent, type SVGProps } from "react";
 
-import { getSetRadii, isEllipseSet, VENN_CANVAS_SIZE } from "@/domain/venn/geometry";
-
+import { getSetBounds, getSetRadii, isEllipseSet, VENN_CANVAS_SIZE } from "@/domain/venn/geometry";
 import type { Point, VennSet } from "@/domain/venn/models";
-
 import { getRegionAtPoint, type VennRegion } from "@/domain/venn/regions";
-
 import { useVennStore } from "@/state/venn-store";
 
 import { VennRegionFill } from "./VennRegionFill";
 
-const DEFAULT_COLORS = ["#004574", "#f59e0b", "#7c3aed", "#059669"] as const;
+const DEFAULT_COLORS = ["#d9a21b", "#168d78", "#50a9bd", "#12376b"] as const;
+const UNIVERSE_PADDING = 28;
 
-function getSetColor(set: VennSet, index: number): string {
-  return set.color ?? DEFAULT_COLORS[index] ?? DEFAULT_COLORS[0];
+interface UniverseBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 interface SetShapeProps {
   set: VennSet;
-  className?: string;
   fill?: SVGProps<SVGCircleElement>["fill"];
   fillOpacity?: number;
   stroke?: string;
@@ -27,53 +27,90 @@ interface SetShapeProps {
 
 interface RegionTooltipProps {
   formula: string;
+  bounds: UniverseBounds;
 }
 
-function SetShape({ set, className, fill, fillOpacity, stroke, strokeWidth }: SetShapeProps) {
+function getSetColor(set: VennSet, index: number): string {
+  return set.color ?? DEFAULT_COLORS[index] ?? DEFAULT_COLORS[0];
+}
+
+function SetShape({ set, fill, fillOpacity, stroke, strokeWidth }: SetShapeProps) {
   if (isEllipseSet(set)) {
     const { radiusX, radiusY } = getSetRadii(set);
 
     return (
       <ellipse
-        className={className}
         cx={set.position.x}
         cy={set.position.y}
         fill={fill}
+        fillOpacity={fillOpacity}
         rx={radiusX}
         ry={radiusY}
+        stroke={stroke}
         strokeWidth={strokeWidth}
         transform={`rotate(${set.rotation ?? 0} ${set.position.x} ${set.position.y})`}
-        fillOpacity={fillOpacity}
-        stroke={stroke}
       />
     );
   }
 
   return (
     <circle
-      className={className}
       cx={set.position.x}
       cy={set.position.y}
       fill={fill}
-      r={set.radius}
-      strokeWidth={strokeWidth}
       fillOpacity={fillOpacity}
+      r={set.radius}
       stroke={stroke}
+      strokeWidth={strokeWidth}
     />
+  );
+}
+
+function getUniverseBounds(sets: VennSet[]): UniverseBounds {
+  if (sets.length === 0) {
+    return {
+      x: 24,
+      y: 24,
+      width: VENN_CANVAS_SIZE.width - 48,
+      height: VENN_CANVAS_SIZE.height - 48,
+    };
+  }
+
+  const setBounds = sets.map(getSetBounds);
+  const left = Math.min(...setBounds.map((bounds) => bounds.left));
+  const right = Math.max(...setBounds.map((bounds) => bounds.right));
+  const top = Math.min(...setBounds.map((bounds) => bounds.top));
+  const bottom = Math.max(...setBounds.map((bounds) => bounds.bottom));
+
+  const x = Math.max(12, left - UNIVERSE_PADDING);
+  const y = Math.max(12, top - UNIVERSE_PADDING);
+  const rightEdge = Math.min(VENN_CANVAS_SIZE.width - 12, right + UNIVERSE_PADDING);
+  const bottomEdge = Math.min(VENN_CANVAS_SIZE.height - 12, bottom + UNIVERSE_PADDING);
+
+  return {
+    x,
+    y,
+    width: Math.max(0, rightEdge - x),
+    height: Math.max(0, bottomEdge - y),
+  };
+}
+
+function isPointInsideUniverse(point: Point, bounds: UniverseBounds): boolean {
+  return (
+    point.x >= bounds.x &&
+    point.x <= bounds.x + bounds.width &&
+    point.y >= bounds.y &&
+    point.y <= bounds.y + bounds.height
   );
 }
 
 function getCanvasPoint(event: MouseEvent<SVGSVGElement>): Point | null {
   const svg = event.currentTarget;
-
   const screenMatrix = svg.getScreenCTM();
 
-  if (!screenMatrix) {
-    return null;
-  }
+  if (!screenMatrix) return null;
 
   const screenPoint = svg.createSVGPoint();
-
   screenPoint.x = event.clientX;
   screenPoint.y = event.clientY;
 
@@ -86,22 +123,14 @@ function getCanvasPoint(event: MouseEvent<SVGSVGElement>): Point | null {
 }
 
 function getBoundaryDistance(set: VennSet, direction: Point): number {
-  if (!isEllipseSet(set)) {
-    return set.radius;
-  }
+  if (!isEllipseSet(set)) return set.radius;
 
   const { radiusX, radiusY } = getSetRadii(set);
-
   const directionLength = Math.hypot(direction.x, direction.y) || 1;
-
   const unitX = direction.x / directionLength;
-
   const unitY = direction.y / directionLength;
-
   const rotation = ((set.rotation ?? 0) * Math.PI) / 180;
-
   const localX = unitX * Math.cos(rotation) + unitY * Math.sin(rotation);
-
   const localY = -unitX * Math.sin(rotation) + unitY * Math.cos(rotation);
 
   return (
@@ -112,12 +141,7 @@ function getBoundaryDistance(set: VennSet, direction: Point): number {
 function getSetLabelPosition(sets: VennSet[], setIndex: number): Point {
   const set = sets[setIndex];
 
-  if (!set) {
-    return {
-      x: 0,
-      y: 0,
-    };
-  }
+  if (!set) return { x: 0, y: 0 };
 
   const otherSets = sets.filter((_, index) => index !== setIndex);
 
@@ -130,7 +154,6 @@ function getSetLabelPosition(sets: VennSet[], setIndex: number): Point {
 
   const otherCenter = {
     x: otherSets.reduce((total, currentSet) => total + currentSet.position.x, 0) / otherSets.length,
-
     y: otherSets.reduce((total, currentSet) => total + currentSet.position.y, 0) / otherSets.length,
   };
 
@@ -140,14 +163,11 @@ function getSetLabelPosition(sets: VennSet[], setIndex: number): Point {
   };
 
   const directionLength = Math.hypot(direction.x, direction.y) || 1;
-
   const boundaryDistance = getBoundaryDistance(set, direction);
-
   const labelDistance = boundaryDistance * 0.72;
 
   return {
     x: set.position.x + (direction.x / directionLength) * labelDistance,
-
     y: set.position.y + (direction.y / directionLength) * labelDistance,
   };
 }
@@ -158,39 +178,48 @@ function getRegionFormula(sets: VennSet[], region: VennRegion): string {
   return sets.map((set) => (includedSetIds.has(set.id) ? set.name : `${set.name}ᶜ`)).join(" ∩ ");
 }
 
-function RegionTooltip({ formula }: RegionTooltipProps) {
-  const label = `REGIÓN   ${formula}`;
-
-  const estimatedWidth = Math.min(Math.max(label.length * 8.5 + 30, 190), 390);
-
-  const x = 18;
-  const y = VENN_CANVAS_SIZE.height - 56;
+function RegionTooltip({ formula, bounds }: RegionTooltipProps) {
+  const label = formula || "Exterior";
+  const width = Math.min(Math.max(label.length * 9 + 34, 150), 300);
+  const x = Math.max(
+    12,
+    Math.min(bounds.x + bounds.width - width, VENN_CANVAS_SIZE.width - width - 12),
+  );
+  const y = Math.max(8, bounds.y - 52);
+  const anchorX = bounds.x + bounds.width;
+  const anchorY = bounds.y;
 
   return (
-    <g
-      data-export-ignore
-      aria-hidden="true"
-      pointerEvents="none"
-      transform={`translate(${x} ${y})`}
-    >
-      <rect
-        fill="white"
-        height="38"
-        opacity="0.96"
-        rx="8"
-        stroke="#d7dee7"
+    <g aria-hidden="true" data-export-ignore pointerEvents="none">
+      <line
+        stroke="#12376b"
+        strokeOpacity="0.55"
         strokeWidth="1"
-        width={estimatedWidth}
+        x1={x + width - 12}
+        x2={anchorX}
+        y1={y + 42}
+        y2={anchorY}
       />
-
+      <circle cx={anchorX} cy={anchorY} fill="#12376b" r="4" />
+      <rect fill="#12376b" height="42" rx="5" width={width} x={x} y={y} />
       <text
-        dominantBaseline="middle"
-        fill="#17324d"
+        fill="white"
+        fontFamily="Ubuntu, system-ui, sans-serif"
+        fontSize="10"
+        fontWeight="700"
+        letterSpacing="1"
+        x={x + 12}
+        y={y + 15}
+      >
+        REGIÓN
+      </text>
+      <text
+        fill="white"
         fontFamily="Ubuntu, system-ui, sans-serif"
         fontSize="14"
         fontWeight="600"
-        x="14"
-        y="19"
+        x={x + 12}
+        y={y + 32}
       >
         {label}
       </text>
@@ -200,45 +229,32 @@ function RegionTooltip({ formula }: RegionTooltipProps) {
 
 export function VennCanvas() {
   const diagram = useVennStore((state) => state.diagram);
-
   const selectedRegionIds = useVennStore((state) => state.selectedRegionIds);
-
   const toggleRegionSelection = useVennStore((state) => state.toggleRegionSelection);
-
   const [hoveredRegion, setHoveredRegion] = useState<VennRegion | null>(null);
+
+  const universeBounds = getUniverseBounds(diagram.sets);
 
   function handleCanvasClick(event: MouseEvent<SVGSVGElement>) {
     const point = getCanvasPoint(event);
 
-    if (!point) {
-      return;
-    }
+    if (!point || !isPointInsideUniverse(point, universeBounds)) return;
 
     const region = getRegionAtPoint(diagram, point);
-
     toggleRegionSelection(region.id);
   }
 
   function handleCanvasMouseMove(event: MouseEvent<SVGSVGElement>) {
     const point = getCanvasPoint(event);
 
-    if (!point) {
+    if (!point || !isPointInsideUniverse(point, universeBounds)) {
+      setHoveredRegion(null);
       return;
     }
 
     const region = getRegionAtPoint(diagram, point);
 
-    setHoveredRegion((currentRegion) => {
-      if (currentRegion?.id === region.id) {
-        return currentRegion;
-      }
-
-      return region;
-    });
-  }
-
-  function handleCanvasMouseLeave() {
-    setHoveredRegion(null);
+    setHoveredRegion((currentRegion) => (currentRegion?.id === region.id ? currentRegion : region));
   }
 
   const hoveredFormula =
@@ -247,16 +263,16 @@ export function VennCanvas() {
   return (
     <svg
       aria-label="Diagrama de Venn interactivo"
-      className="canvas-grid block h-auto w-full max-w-full cursor-crosshair touch-manipulation overflow-hidden rounded-xl border border-border bg-background shadow-sm select-none lg:h-full lg:w-auto"
+      className="block h-auto w-full max-w-full touch-manipulation select-none lg:h-full lg:w-auto"
+      data-venn-canvas
       height={VENN_CANVAS_SIZE.height}
       onClick={handleCanvasClick}
-      onMouseLeave={handleCanvasMouseLeave}
+      onMouseLeave={() => setHoveredRegion(null)}
       onMouseMove={handleCanvasMouseMove}
       preserveAspectRatio="xMidYMid meet"
       role="application"
       viewBox={`0 0 ${VENN_CANVAS_SIZE.width} ${VENN_CANVAS_SIZE.height}`}
       width={VENN_CANVAS_SIZE.width}
-      data-venn-canvas
     >
       <rect
         className="fill-transparent"
@@ -264,43 +280,48 @@ export function VennCanvas() {
         width={VENN_CANVAS_SIZE.width}
       />
 
-      <g pointerEvents="none">
-        {diagram.sets.map((set, index) => {
-          const color = getSetColor(set, index);
+      <rect
+        className="venn-universe"
+        data-universe-frame
+        height={universeBounds.height}
+        width={universeBounds.width}
+        x={universeBounds.x}
+        y={universeBounds.y}
+      />
 
-          return (
-            <g key={set.id} opacity={set.hidden ? 0.18 : 1}>
-              <SetShape fill={color} fillOpacity={0.1} set={set} />
-            </g>
-          );
-        })}
+      <text className="venn-universe-label" x={universeBounds.x + 14} y={universeBounds.y + 25}>
+        U
+      </text>
+
+      <g pointerEvents="none">
+        {diagram.sets.map((set, index) => (
+          <g key={set.id} opacity={set.hidden ? 0.18 : 1}>
+            <SetShape fill={getSetColor(set, index)} fillOpacity={0.1} set={set} />
+          </g>
+        ))}
       </g>
 
       <VennRegionFill
         diagram={diagram}
         hoveredRegionId={hoveredRegion?.id ?? null}
         selectedRegionIds={selectedRegionIds}
+        universeBounds={universeBounds}
       />
 
       <g pointerEvents="none">
         {diagram.sets.map((set, index) => {
           const color = getSetColor(set, index);
-
           const labelPosition = getSetLabelPosition(diagram.sets, index);
 
           return (
             <g key={set.id} opacity={set.hidden ? 0.18 : 1}>
-              <SetShape fill="none" set={set} stroke={color} strokeWidth={4} />
-
+              <SetShape fill="none" set={set} stroke={color} strokeWidth={3} />
               <text
+                className="venn-set-label"
                 dominantBaseline="middle"
                 fill={color}
-                fontSize="30"
+                fontSize="28"
                 fontWeight="700"
-                paintOrder="stroke"
-                stroke="white"
-                strokeOpacity="0.9"
-                strokeWidth="6"
                 textAnchor="middle"
                 x={labelPosition.x}
                 y={labelPosition.y}
@@ -312,7 +333,7 @@ export function VennCanvas() {
         })}
       </g>
 
-      {hoveredFormula && <RegionTooltip formula={hoveredFormula} />}
+      {hoveredFormula && <RegionTooltip bounds={universeBounds} formula={hoveredFormula} />}
     </svg>
   );
 }

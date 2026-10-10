@@ -1,45 +1,244 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-primary: #004574;
-  --color-brand-primary-hover: #005b98;
-  --color-accent: #f2c100;
+  --color-brand-primary: #12376b;
+  --color-brand-primary-hover: #0b2b57;
+  --color-accent: #d9a21b;
   --color-background: #ffffff;
-  --color-surface: #f7f8fa;
-  --color-surface-hover: #edf2f7;
-  --color-border: #d7dee7;
-  --color-text: #17324d;
-  --color-text-muted: #6b7280;
+  --color-surface: #f8fafc;
+  --color-surface-hover: #eef3f9;
+  --color-border: #dce3ec;
+  --color-text: #142b4a;
+  --color-text-muted: #718096;
   --font-sans: Ubuntu, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 html,
 body,
 #root {
-  min-height: 100%;
   width: 100%;
+  min-height: 100%;
   max-width: 100%;
 }
 
-html {
-  overflow-x: hidden;
+html,
+body {
+  overflow: hidden;
 }
 
 body {
   min-width: 20rem;
   min-height: 100vh;
-  overflow-x: hidden;
+  margin: 0;
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-sans);
 }
 
-.canvas-grid {
-  background-color: var(--color-background);
+.venn-workspace {
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fbfcfe;
+}
 
-  background-image:
-    linear-gradient(to right, rgb(215 222 231 / 45%) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(215 222 231 / 45%) 1px, transparent 1px);
+.venn-workspace__body {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  background-color: #fbfcfe;
+  background-image: radial-gradient(#d8e0eb 0.8px, transparent 0.8px);
+  background-size: 16px 16px;
+}
 
-  background-size: 24px 24px;
+.venn-workspace__canvas {
+  position: absolute;
+  inset: 0 0 12.5rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.75rem;
+}
+
+.venn-workspace__sets {
+  position: absolute;
+  z-index: 30;
+  top: 1rem;
+  left: 1rem;
+  width: 17rem;
+  max-height: calc(100% - 14rem);
+}
+
+.venn-sets-panel__card {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 8px 24px rgb(20 43 74 / 6%);
+}
+
+.venn-sets-panel__header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.venn-sets-panel__desktop-header {
+  padding: 0.75rem 1rem;
+}
+
+.venn-sets-panel__content {
+  max-height: calc(100dvh - 16rem);
+  padding: 0.5rem 1rem 0.75rem;
+  overflow-y: auto;
+}
+
+.venn-sets-panel__item {
+  padding: 0.65rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.venn-sets-panel__item:hover {
+  background: transparent;
+}
+
+.venn-sets-panel__item-content {
+  gap: 0.6rem;
+}
+
+.venn-sets-panel__color-control {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.65rem;
+}
+
+.venn-sets-panel__action {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.4rem;
+}
+
+.venn-sets-panel__add-button {
+  margin-top: 0.65rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.55rem;
+  background: white;
+}
+
+.venn-workspace__formula {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  bottom: 0.65rem;
+  left: 0;
+  width: min(64rem, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.venn-formula-bar {
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  background: rgb(255 255 255 / 97%);
+  box-shadow: 0 8px 24px rgb(20 43 74 / 7%);
+}
+
+.venn-formula-bar__input-section {
+  padding: 0.65rem 1rem 0.4rem;
+}
+
+.venn-formula-bar__hint {
+  display: none;
+}
+
+.venn-formula-bar__label {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+}
+
+.venn-formula-bar__input {
+  min-height: 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.venn-formula-bar__status {
+  min-height: 1rem;
+  margin-top: 0.15rem;
+}
+
+.venn-formula-bar__actions {
+  padding: 0.45rem 1rem 0.6rem;
+}
+
+.venn-formula-bar__actions button {
+  height: 2rem;
+  border-radius: 0.4rem;
+}
+
+.venn-universe {
+  fill: rgb(255 255 255 / 68%);
+  stroke: #12376b;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.venn-universe-label {
+  fill: #12376b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 23px;
+  font-style: italic;
+}
+
+.venn-set-label {
+  paint-order: stroke;
+  stroke: white;
+  stroke-width: 5px;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 639px) {
+  .venn-workspace__canvas {
+    inset: 0 0 15rem;
+    padding: 0.5rem 0.25rem;
+  }
+
+  .venn-workspace__sets {
+    top: 0.75rem;
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+    max-height: calc(100% - 16rem);
+  }
+
+  .venn-sets-panel__content {
+    max-height: 30dvh;
+  }
+
+  .venn-workspace__formula {
+    bottom: 0.5rem;
+    width: calc(100% - 1rem);
+  }
+
+  .venn-formula-bar__input-section {
+    gap: 0.4rem;
+    padding: 0.55rem 0.7rem 0.35rem;
+  }
+
+  .venn-formula-bar__actions {
+    padding: 0.4rem 0.7rem 0.55rem;
+  }
+}
+
+.venn-canvas-fit > svg {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  flex: none;
 }
