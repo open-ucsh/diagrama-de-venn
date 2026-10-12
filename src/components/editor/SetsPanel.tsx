@@ -40,13 +40,29 @@ function getNextSetPosition(sets: VennSet[]): Point {
 }
 
 function getNextSetName(sets: VennSet[]): string {
-  const usedNames = new Set(sets.map((set) => set.name.trim().toUpperCase()));
+  const usedNames = new Set(sets.map((set) => set.name.trim().replace(/\s+/g, " ").toLowerCase()));
 
-  return DEFAULT_SET_NAMES.find((name) => !usedNames.has(name)) ?? `Conjunto ${sets.length + 1}`;
+  const availableName = DEFAULT_SET_NAMES.find((name) => !usedNames.has(name.toLowerCase()));
+
+  if (availableName) return availableName;
+
+  let index = sets.length + 1;
+
+  while (usedNames.has(`conjunto ${index}`)) {
+    index += 1;
+  }
+
+  return `Conjunto ${index}`;
 }
 
 function getSetColor(set: VennSet, index: number): string {
   return set.color ?? DEFAULT_SET_COLORS[index] ?? DEFAULT_SET_COLORS[0];
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "No fue posible guardar el conjunto. Inténtalo nuevamente.";
 }
 
 export function SetsPanel() {
@@ -59,6 +75,8 @@ export function SetsPanel() {
 
   const [editingSetId, setEditingSetId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
 
   const canCreateSet = sets.length < MAX_SETS;
@@ -67,28 +85,38 @@ export function SetsPanel() {
   function handleCreateSet() {
     if (!canCreateSet) return;
 
-    createSet(getNextSetName(sets), getNextSetPosition(sets));
+    setCreateError(null);
     setIsMobilePanelOpen(true);
+
+    try {
+      createSet(getNextSetName(sets), getNextSetPosition(sets));
+    } catch (error) {
+      setCreateError(getErrorMessage(error));
+    }
   }
 
   function startEditing(set: VennSet) {
     setEditingSetId(set.id);
     setDraftName(set.name);
+    setNameError(null);
   }
 
   function cancelEditing() {
     setEditingSetId(null);
     setDraftName("");
+    setNameError(null);
   }
 
   function saveName(set: VennSet) {
-    const name = draftName.trim();
+    try {
+      if (draftName !== set.name) {
+        renameSet(set.id, draftName);
+      }
 
-    if (name && name !== set.name) {
-      renameSet(set.id, name);
+      cancelEditing();
+    } catch (error) {
+      setNameError(getErrorMessage(error));
     }
-
-    cancelEditing();
   }
 
   function handleRemoveSet(set: VennSet) {
@@ -99,6 +127,7 @@ export function SetsPanel() {
     if (!confirmed) return;
 
     removeSet(set.id);
+    setCreateError(null);
 
     if (editingSetId === set.id) {
       cancelEditing();
@@ -156,6 +185,7 @@ export function SetsPanel() {
         {sets.map((set, index) => {
           const isEditing = editingSetId === set.id;
           const color = getSetColor(set, index);
+          const errorId = `set-name-error-${set.id}`;
 
           return (
             <div className="w-full" key={set.id}>
@@ -163,50 +193,73 @@ export function SetsPanel() {
                 className={["venn-sets-panel__item py-3", set.hidden ? "opacity-60" : ""].join(" ")}
               >
                 {isEditing ? (
-                  <div className="venn-sets-panel__item-content flex items-center gap-2">
-                    <span
-                      className="venn-sets-panel__color-control grid size-9 shrink-0 place-items-center rounded-md border"
-                      style={{
-                        backgroundColor: `${color}14`,
-                        borderColor: `${color}40`,
-                        color,
-                      }}
-                    >
-                      <Circle aria-hidden="true" className="size-4.5" />
-                    </span>
+                  <div>
+                    <div className="venn-sets-panel__item-content flex items-center gap-2">
+                      <span
+                        className="venn-sets-panel__color-control grid size-9 shrink-0 place-items-center rounded-md border"
+                        style={{
+                          backgroundColor: `${color}14`,
+                          borderColor: `${color}40`,
+                          color,
+                        }}
+                      >
+                        <Circle aria-hidden="true" className="size-4.5" />
+                      </span>
 
-                    <input
-                      aria-label={`Nuevo nombre para ${set.name}`}
-                      autoFocus
-                      className="h-9 min-w-0 flex-1 border-b border-brand-primary bg-transparent px-1 text-sm font-semibold text-text outline-none focus:border-b-2"
-                      onChange={(event) => setDraftName(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") saveName(set);
-                        if (event.key === "Escape") cancelEditing();
-                      }}
-                      value={draftName}
-                    />
+                      <input
+                        aria-describedby={nameError ? errorId : undefined}
+                        aria-invalid={Boolean(nameError)}
+                        aria-label={`Nuevo nombre para ${set.name}`}
+                        autoFocus
+                        className={[
+                          "h-9 min-w-0 flex-1 border-b bg-transparent px-1 text-sm font-semibold text-text outline-none focus:border-b-2",
+                          nameError ? "border-red-600" : "border-brand-primary",
+                        ].join(" ")}
+                        onChange={(event) => {
+                          setDraftName(event.target.value);
+                          setNameError(null);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.nativeEvent.isComposing) return;
 
-                    <button
-                      aria-label="Cancelar edición"
-                      className="venn-sets-panel__action grid size-8 shrink-0 place-items-center text-text-muted transition-colors hover:bg-surface hover:text-text"
-                      onClick={cancelEditing}
-                      title="Cancelar"
-                      type="button"
-                    >
-                      <X aria-hidden="true" className="size-4" />
-                    </button>
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            saveName(set);
+                          }
 
-                    <button
-                      aria-label="Guardar nombre"
-                      className="venn-sets-panel__action grid size-8 shrink-0 place-items-center bg-brand-primary text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={draftName.trim().length === 0}
-                      onClick={() => saveName(set)}
-                      title="Guardar nombre"
-                      type="button"
-                    >
-                      <Check aria-hidden="true" className="size-4" />
-                    </button>
+                          if (event.key === "Escape") {
+                            cancelEditing();
+                          }
+                        }}
+                        value={draftName}
+                      />
+
+                      <button
+                        aria-label="Cancelar edición"
+                        className="venn-sets-panel__action grid size-8 shrink-0 place-items-center text-text-muted transition-colors hover:bg-surface hover:text-text"
+                        onClick={cancelEditing}
+                        title="Cancelar"
+                        type="button"
+                      >
+                        <X aria-hidden="true" className="size-4" />
+                      </button>
+
+                      <button
+                        aria-label="Guardar nombre"
+                        className="venn-sets-panel__action grid size-8 shrink-0 place-items-center bg-brand-primary text-white transition-colors hover:bg-brand-primary-hover"
+                        onClick={() => saveName(set)}
+                        title="Guardar nombre"
+                        type="button"
+                      >
+                        <Check aria-hidden="true" className="size-4" />
+                      </button>
+                    </div>
+
+                    {nameError && (
+                      <p className="mt-2 text-xs leading-5 text-red-700" id={errorId} role="alert">
+                        {nameError}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="venn-sets-panel__item-content flex min-h-14 items-center gap-3">
@@ -301,6 +354,12 @@ export function SetsPanel() {
               Los círculos se transformaron en elipses para representar las 16 regiones posibles.
             </p>
           </div>
+        )}
+
+        {createError && (
+          <p className="my-3 text-xs leading-5 text-red-700" role="alert">
+            {createError}
+          </p>
         )}
 
         <button
