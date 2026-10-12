@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "wasm:build": "wasm-pack build crates/venn-engine --target web --out-dir pkg --release",
+    "build": "pnpm wasm:build && tsc -b && vite build",
     "lint": "oxlint",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
@@ -45,5 +46,6 @@
       "oxfmt --write"
     ],
     "*.{css,json,md,yml,yaml}": "oxfmt --write"
-  }
+  },
+  "packageManager": "pnpm@11.5.1"
 }

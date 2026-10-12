@@ -1,8 +1,7 @@
-import { useFormulaEditor } from "./use-formula-editor";
-
-import { Check, CircleAlert, Sigma, X } from "lucide-react";
+import { Check, CircleAlert, LoaderCircle, Sigma, X } from "lucide-react";
 
 import { FormulaHistoryMenu } from "./FormulaHistoryMenu";
+import { useFormulaEditor } from "./use-formula-editor";
 
 const FORMULA_SYMBOLS = [
   { label: "∪", value: " ∪ ", title: "Unión" },
@@ -17,11 +16,15 @@ const FORMULA_SYMBOLS = [
 export function FormulaBar() {
   const {
     inputRef,
-    isEditingRef,
     formula,
     error,
+    calculationError,
+    isCalculating,
+    isMinimum,
     selectedRegionIds,
     formulaHistory,
+    beginEditing,
+    finishEditing,
     handleChange,
     recordFormula,
     clearFormula,
@@ -33,6 +36,8 @@ export function FormulaBar() {
     hasFormula,
     isValid,
   } = useFormulaEditor();
+
+  const statusError = error ?? calculationError;
 
   return (
     <section
@@ -63,18 +68,15 @@ export function FormulaBar() {
               autoComplete="off"
               className="venn-formula-bar__input h-11 w-full rounded-lg border border-border bg-surface/60 px-3 pr-10 font-mono text-sm font-medium text-text outline-none transition-colors placeholder:font-sans placeholder:font-normal placeholder:text-text-muted focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 sm:text-base"
               id="venn-formula"
-              onBlur={() => {
-                isEditingRef.current = false;
-                recordFormula(formula);
-              }}
+              onBlur={finishEditing}
               onChange={handleChange}
-              onFocus={() => {
-                isEditingRef.current = true;
-              }}
+              onFocus={beginEditing}
               onKeyDown={(event) => {
-                if (event.key === "Enter") recordFormula(formula);
+                if (event.key === "Enter") {
+                  recordFormula(formula);
+                }
               }}
-              placeholder="Ejemplo: (A ∪ B) ∩ C'"
+              placeholder={isCalculating ? "Buscando fórmula mínima…" : "Ejemplo: (A ∪ B) ∩ C'"}
               spellCheck={false}
               type="text"
               value={formula}
@@ -84,6 +86,7 @@ export function FormulaBar() {
               <button
                 aria-label="Limpiar fórmula"
                 className="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={clearFormula}
                 title="Limpiar fórmula"
                 type="button"
@@ -107,15 +110,20 @@ export function FormulaBar() {
           className="venn-formula-bar__status flex min-h-8 items-center"
           id="venn-formula-status"
         >
-          {error ? (
+          {statusError ? (
             <p className="flex items-center gap-1.5 text-xs font-medium text-red-600">
               <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />
-              {error}
+              {statusError}
+            </p>
+          ) : isCalculating ? (
+            <p className="flex items-center gap-1.5 text-xs text-text-muted">
+              <LoaderCircle aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
+              Buscando fórmula mínima…
             </p>
           ) : isValid ? (
             <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
               <Check aria-hidden="true" className="size-3.5" />
-              Fórmula válida
+              {isMinimum ? "Fórmula mínima" : "Fórmula válida"}
               <span className="text-text-muted">·</span>
               {selectedRegionIds.length}{" "}
               {selectedRegionIds.length === 1 ? "región seleccionada" : "regiones seleccionadas"}

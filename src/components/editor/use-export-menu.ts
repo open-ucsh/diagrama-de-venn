@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
-import { createShareUrl } from "@/services/venn/share-project";
-
+import { getSelectedMask } from "@/domain/venn/expressions/expression-masks";
+import { createProjectFile, parseProjectFile } from "@/domain/venn/project-file";
 import {
   exportDiagramPng,
   exportDiagramSvg,
   exportProjectJson,
 } from "@/services/venn/export-diagram";
-
-import { getSelectedRegionsExpression } from "@/domain/venn/expressions";
-
-import { createProjectFile, parseProjectFile } from "@/domain/venn/project-file";
-
+import { createShareUrl } from "@/services/venn/share-project";
+import { useVennExpression } from "@/state/venn-expression";
 import { useVennStore } from "@/state/venn-store";
 
 export function useExportMenu() {
@@ -21,6 +18,7 @@ export function useExportMenu() {
   const diagram = useVennStore((state) => state.diagram);
   const selectedRegionIds = useVennStore((state) => state.selectedRegionIds);
   const importProject = useVennStore((state) => state.importProject);
+  const expression = useVennExpression();
 
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -30,7 +28,16 @@ export function useExportMenu() {
     type: "success" | "error";
   } | null>(null);
 
-  const formula = getSelectedRegionsExpression(diagram, selectedRegionIds);
+  const setsKey = JSON.stringify(diagram.sets.map((set) => ({ id: set.id, name: set.name })));
+
+  const selectedMask = getSelectedMask(diagram, selectedRegionIds);
+  const hasSelection = selectedRegionIds.length > 0;
+  const searchKey = JSON.stringify([setsKey, selectedMask, hasSelection]);
+
+  const formula =
+    hasSelection && expression.key === searchKey && expression.status === "ready"
+      ? expression.text
+      : null;
 
   function closeMenu() {
     detailsRef.current?.removeAttribute("open");
@@ -39,7 +46,9 @@ export function useExportMenu() {
   }
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -70,7 +79,9 @@ export function useExportMenu() {
   }
 
   async function copyFormula() {
-    if (!formula) return;
+    if (!formula) {
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(formula);
@@ -87,6 +98,7 @@ export function useExportMenu() {
   async function copyShareLink() {
     try {
       const link = createShareUrl(diagram, selectedRegionIds);
+
       await navigator.clipboard.writeText(link);
       setCopiedLink(true);
 
@@ -135,9 +147,12 @@ export function useExportMenu() {
   }
 
   async function handleImport(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    const input = event.currentTarget;
+    const file = input.files?.[0];
 
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     try {
       const content = await file.text();
@@ -152,7 +167,7 @@ export function useExportMenu() {
         "error",
       );
     } finally {
-      event.target.value = "";
+      input.value = "";
     }
   }
 
