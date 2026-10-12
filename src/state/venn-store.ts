@@ -22,61 +22,20 @@ import {
   setElementMembership,
 } from "@/domain/venn/operations";
 
-const MAX_HISTORY_LENGTH = 50;
+import {
+  recordHistory,
+  redoHistory,
+  undoHistory,
+  type VennSelection,
+  type VennSnapshot,
+} from "./venn-history";
 
-const memoryStorage = (() => {
-  const values = new Map<string, string>();
+export type { VennSelection } from "./venn-history";
 
-  return {
-    getItem: (name: string) => values.get(name) ?? null,
-
-    removeItem: (name: string) => {
-      values.delete(name);
-    },
-
-    setItem: (name: string, value: string) => {
-      values.set(name, value);
-    },
-  };
-})();
-
-function getStorage() {
-  if (typeof window === "undefined") {
-    return memoryStorage;
-  }
-
-  const browserStorage = window.localStorage;
-
-  if (
-    typeof browserStorage?.getItem === "function" &&
-    typeof browserStorage?.removeItem === "function" &&
-    typeof browserStorage?.setItem === "function"
-  ) {
-    return browserStorage;
-  }
-
-  return memoryStorage;
-}
+import { getStorage } from "./venn-storage";
 
 const STORE_NAME = "venn-editor";
 const STORE_VERSION = 1;
-
-export type VennSelection =
-  | {
-      id: string;
-      kind: "element";
-    }
-  | {
-      id: string;
-      kind: "set";
-    }
-  | null;
-
-interface VennSnapshot {
-  diagram: VennDiagram;
-  selection: VennSelection;
-  selectedRegionIds: string[];
-}
 
 interface VennStore {
   diagram: VennDiagram;
@@ -124,26 +83,6 @@ interface VennStore {
   toggleSetVisibility: (setId: string) => void;
 }
 
-function createSnapshot(state: VennStore): VennSnapshot {
-  return {
-    diagram: state.diagram,
-    selection: state.selection,
-    selectedRegionIds: [...state.selectedRegionIds],
-  };
-}
-
-function recordHistory(state: VennStore, changes: Partial<VennSnapshot>): Partial<VennStore> {
-  const snapshot = createSnapshot(state);
-
-  return {
-    ...changes,
-
-    past: [...state.past, snapshot].slice(-MAX_HISTORY_LENGTH),
-
-    future: [],
-  };
-}
-
 function haveSameRegionIds(first: string[], second: string[]): boolean {
   if (first.length !== second.length) {
     return false;
@@ -165,50 +104,9 @@ export const useVennStore = create<VennStore>()(
       past: [],
       future: [],
 
-      undo: () =>
-        set((state) => {
-          const previous = state.past[state.past.length - 1];
+      undo: () => set((state) => undoHistory(state)),
 
-          if (!previous) {
-            return state;
-          }
-
-          const current = createSnapshot(state);
-
-          return {
-            diagram: previous.diagram,
-
-            selection: previous.selection,
-
-            selectedRegionIds: [...previous.selectedRegionIds],
-
-            past: state.past.slice(0, -1),
-
-            future: [current, ...state.future].slice(0, MAX_HISTORY_LENGTH),
-          };
-        }),
-
-      redo: () =>
-        set((state) => {
-          const next = state.future[0];
-
-          if (!next) {
-            return state;
-          }
-
-          const current = createSnapshot(state);
-
-          return {
-            diagram: next.diagram,
-            selection: next.selection,
-
-            selectedRegionIds: [...next.selectedRegionIds],
-
-            past: [...state.past, current].slice(-MAX_HISTORY_LENGTH),
-
-            future: state.future.slice(1),
-          };
-        }),
+      redo: () => set((state) => redoHistory(state)),
 
       resetDiagram: (name) =>
         set((state) =>
