@@ -1,20 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Check, FileText, Pencil, Redo2, Undo2, X } from "lucide-react";
 
 import { useVennStore } from "@/state/venn-store";
 
 import { ExportMenu } from "./ExportMenu";
-
-function isEditableElement(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target.isContentEditable
-  );
-}
+import { useHistoryShortcuts } from "./use-history-shortcuts";
 
 export function EditorHeader() {
   const diagramName = useVennStore((state) => state.diagram.metadata.name);
@@ -27,34 +18,7 @@ export function EditorHeader() {
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState(diagramName);
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (isEditableElement(event.target)) return;
-
-      const hasModifier = event.ctrlKey || event.metaKey;
-      if (!hasModifier) return;
-
-      const key = event.key.toLowerCase();
-      const wantsUndo = key === "z" && !event.shiftKey;
-      const wantsRedo = (key === "z" && event.shiftKey) || key === "y";
-
-      if (wantsUndo && canUndo) {
-        event.preventDefault();
-        undo();
-      }
-
-      if (wantsRedo && canRedo) {
-        event.preventDefault();
-        redo();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [canRedo, canUndo, redo, undo]);
+  useHistoryShortcuts({ canUndo, canRedo, undo, redo });
 
   function startEditing() {
     setDraftName(diagramName);

@@ -2,9 +2,9 @@ import { useEffect, useRef } from "react";
 
 import { CanvasViewport } from "@/components/canvas/CanvasViewport";
 import { EditorHeader } from "@/components/editor/EditorHeader";
-import { FormulaBar } from "@/components/editor/FormulaBar";
-import { SetsPanel } from "@/components/editor/SetsPanel";
-import { consumeSharedProject } from "@/domain/venn/share-project";
+import { FormulaBar } from "@/components/editor/formula/FormulaBar";
+import { SetsPanel } from "@/components/editor/sets/SetsPanel";
+import { consumeSharedProject } from "@/services/venn/share-project";
 import { useVennStore } from "@/state/venn-store";
 
 function App() {

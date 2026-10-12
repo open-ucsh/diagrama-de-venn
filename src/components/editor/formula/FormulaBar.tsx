@@ -1,20 +1,8 @@
-import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFormulaEditor } from "./use-formula-editor";
 
 import { Check, CircleAlert, Sigma, X } from "lucide-react";
 
-import {
-  getSelectedRegionsExpression,
-  parseVennExpression,
-  prepareDiagramExpressions,
-  VennExpressionError,
-} from "@/domain/venn/expressions";
-
-import { useVennStore } from "@/state/venn-store";
-
 import { FormulaHistoryMenu } from "./FormulaHistoryMenu";
-
-const FORMULA_HISTORY_STORAGE_KEY = "venn-formula-history";
-const MAX_FORMULA_HISTORY = 10;
 
 const FORMULA_SYMBOLS = [
   { label: "∪", value: " ∪ ", title: "Unión" },
@@ -26,196 +14,25 @@ const FORMULA_SYMBOLS = [
   { label: ")", value: ")", title: "Cerrar paréntesis" },
 ] as const;
 
-function loadFormulaHistory(): string[] {
-  try {
-    const storedValue = window.localStorage.getItem(FORMULA_HISTORY_STORAGE_KEY);
-
-    if (!storedValue) return [];
-
-    const parsed: unknown = JSON.parse(storedValue);
-
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .filter((value): value is string => typeof value === "string")
-      .slice(0, MAX_FORMULA_HISTORY);
-  } catch {
-    return [];
-  }
-}
-
-function persistFormulaHistory(formulas: string[]) {
-  try {
-    window.localStorage.setItem(FORMULA_HISTORY_STORAGE_KEY, JSON.stringify(formulas));
-  } catch {
-    // El historial seguirá disponible durante esta sesión.
-  }
-}
-
 export function FormulaBar() {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const isEditingRef = useRef(false);
-
-  const diagram = useVennStore((state) => state.diagram);
-  const selectedRegionIds = useVennStore((state) => state.selectedRegionIds);
-  const setRegionSelection = useVennStore((state) => state.setRegionSelection);
-  const clearRegionSelection = useVennStore((state) => state.clearRegionSelection);
-
-  const [formula, setFormula] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [formulaHistory, setFormulaHistory] = useState<string[]>(loadFormulaHistory);
-
-  const selectedExpression = useMemo(
-    () => getSelectedRegionsExpression(diagram, selectedRegionIds),
-    [diagram, selectedRegionIds],
-  );
-
-  const saveFormulaToHistory = useCallback((value: string) => {
-    const normalized = value.trim();
-
-    if (!normalized) return;
-
-    setFormulaHistory((currentHistory) => {
-      const nextHistory = [
-        normalized,
-        ...currentHistory.filter((item) => item !== normalized),
-      ].slice(0, MAX_FORMULA_HISTORY);
-
-      persistFormulaHistory(nextHistory);
-      return nextHistory;
-    });
-  }, []);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      prepareDiagramExpressions(diagram);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [diagram]);
-
-  useEffect(() => {
-    if (isEditingRef.current) return;
-
-    setFormula(selectedExpression ?? "");
-    setError(null);
-  }, [selectedExpression]);
-
-  useEffect(() => {
-    if (isEditingRef.current || !selectedExpression) return;
-
-    const timeoutId = window.setTimeout(() => {
-      saveFormulaToHistory(selectedExpression);
-    }, 700);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [saveFormulaToHistory, selectedExpression]);
-
-  function applyFormula(value: string) {
-    setFormula(value);
-
-    if (!value.trim()) {
-      setError(null);
-      setRegionSelection([]);
-      return;
-    }
-
-    try {
-      const parsed = parseVennExpression(diagram, value);
-      setRegionSelection(parsed.regionIds);
-      setError(null);
-    } catch (caughtError) {
-      if (caughtError instanceof VennExpressionError) {
-        setError(caughtError.message);
-      } else {
-        setError("No fue posible interpretar la fórmula.");
-      }
-    }
-  }
-
-  function recordFormula(value: string) {
-    if (!value.trim()) return;
-
-    try {
-      parseVennExpression(diagram, value);
-      saveFormulaToHistory(value);
-    } catch {
-      // Solo se guardan fórmulas válidas.
-    }
-  }
-
-  function handleChange(event: ChangeEvent<HTMLInputElement>) {
-    applyFormula(event.target.value);
-  }
-
-  function insertSymbol(symbol: string) {
-    const input = inputRef.current;
-
-    if (!input) {
-      applyFormula(`${formula}${symbol}`);
-      return;
-    }
-
-    const start = input.selectionStart ?? formula.length;
-    const end = input.selectionEnd ?? formula.length;
-    const nextFormula = formula.slice(0, start) + symbol + formula.slice(end);
-
-    applyFormula(nextFormula);
-
-    window.requestAnimationFrame(() => {
-      const cursorPosition = start + symbol.length;
-
-      input.focus();
-      input.setSelectionRange(cursorPosition, cursorPosition);
-    });
-  }
-
-  function clearFormula() {
-    setFormula("");
-    setError(null);
-    clearRegionSelection();
-    inputRef.current?.focus();
-  }
-
-  function isHistoryFormulaAvailable(historicalFormula: string): boolean {
-    try {
-      parseVennExpression(diagram, historicalFormula);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  function applyHistoryFormula(historicalFormula: string) {
-    if (!isHistoryFormulaAvailable(historicalFormula)) return;
-
-    isEditingRef.current = true;
-    applyFormula(historicalFormula);
-    saveFormulaToHistory(historicalFormula);
-
-    window.requestAnimationFrame(() => {
-      const input = inputRef.current;
-      input?.focus();
-      input?.setSelectionRange(historicalFormula.length, historicalFormula.length);
-    });
-  }
-
-  function clearFormulaHistory() {
-    setFormulaHistory([]);
-    persistFormulaHistory([]);
-  }
-
-  function deleteFormulaFromHistory(formulaToDelete: string) {
-    setFormulaHistory((currentHistory) => {
-      const nextHistory = currentHistory.filter((item) => item !== formulaToDelete);
-
-      persistFormulaHistory(nextHistory);
-      return nextHistory;
-    });
-  }
-
-  const hasFormula = formula.trim().length > 0;
-  const isValid = hasFormula && !error;
+  const {
+    inputRef,
+    isEditingRef,
+    formula,
+    error,
+    selectedRegionIds,
+    formulaHistory,
+    handleChange,
+    recordFormula,
+    clearFormula,
+    insertSymbol,
+    isHistoryFormulaAvailable,
+    applyHistoryFormula,
+    clearFormulaHistory,
+    deleteFormulaFromHistory,
+    hasFormula,
+    isValid,
+  } = useFormulaEditor();
 
   return (
     <section
