@@ -1,15 +1,12 @@
+import type { UniverseBounds } from "./canvas-geometry";
+
+import { SetShape } from "./SetShape";
+
 import { useId } from "react";
 
-import { getSetRadii, isEllipseSet, VENN_CANVAS_SIZE } from "@/domain/venn/geometry";
+import { VENN_CANVAS_SIZE } from "@/domain/venn/geometry";
 import type { VennDiagram, VennSet } from "@/domain/venn/models";
 import { getVennRegions, type VennRegion } from "@/domain/venn/regions";
-
-interface UniverseBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
 
 interface VennRegionFillProps {
   diagram: VennDiagram;
@@ -22,30 +19,6 @@ interface IntersectionShapeProps {
   sets: VennSet[];
   clipIdBySetId: Map<string, string>;
   index?: number;
-}
-
-interface ClipShapeProps {
-  set: VennSet;
-  fill?: string;
-}
-
-function ClipShape({ set, fill }: ClipShapeProps) {
-  if (isEllipseSet(set)) {
-    const { radiusX, radiusY } = getSetRadii(set);
-
-    return (
-      <ellipse
-        cx={set.position.x}
-        cy={set.position.y}
-        fill={fill}
-        rx={radiusX}
-        ry={radiusY}
-        transform={`rotate(${set.rotation ?? 0} ${set.position.x} ${set.position.y})`}
-      />
-    );
-  }
-
-  return <circle cx={set.position.x} cy={set.position.y} fill={fill} r={set.radius} />;
 }
 
 function IntersectionShape({ sets, clipIdBySetId, index = 0 }: IntersectionShapeProps) {
@@ -111,7 +84,7 @@ export function VennRegionFill({
 
           return (
             <clipPath clipPathUnits="userSpaceOnUse" id={clipId} key={set.id}>
-              <ClipShape set={set} />
+              <SetShape set={set} />
             </clipPath>
           );
         })}
@@ -143,7 +116,7 @@ export function VennRegionFill({
               )}
 
               {excludedSets.map((set) => (
-                <ClipShape fill="black" key={set.id} set={set} />
+                <SetShape fill="black" key={set.id} set={set} />
               ))}
             </mask>
           );

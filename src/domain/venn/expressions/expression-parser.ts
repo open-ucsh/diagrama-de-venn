@@ -52,13 +52,29 @@ export class VennExpressionError extends Error {
   }
 }
 
-function isIdentifierCharacter(character: string) {
-  return /[\p{L}\p{N}_]/u.test(character);
+function isIdentifierCharacter(character: string): boolean {
+  return character !== "ᶜ" && character !== "Δ" && /[\p{L}\p{N}_]/u.test(character);
 }
 
-function tokenize(source: string): Token[] {
+function tokenize(source: string, diagram: VennDiagram): Token[] {
   const tokens: Token[] = [];
   let position = 0;
+
+  // Match longer names first: "Numeros reales" before "Numeros".
+  // Names containing operator symbols require a quoted-name syntax,
+  // which is not introduced in this change.
+  const setNames = diagram.sets
+    .map((set) => set.name)
+    .filter(
+      (name) =>
+        name.length > 0 &&
+        name.trim() === name &&
+        /^[\p{L}\p{N}_]+(?:\s+[\p{L}\p{N}_]+)*$/u.test(name) &&
+        !name.includes("ᶜ") &&
+        !name.includes("Δ") &&
+        name.toUpperCase() !== "U",
+    )
+    .sort((first, second) => second.length - first.length);
 
   while (position < source.length) {
     const character = source[position];
@@ -72,102 +88,85 @@ function tokenize(source: string): Token[] {
       continue;
     }
 
-    if (character === "(") {
+    if (character === "(" || character === ")") {
       tokens.push({
-        type: "left-parenthesis",
+        type: character === "(" ? "left-parenthesis" : "right-parenthesis",
         position,
       });
-
-      position += 1;
-      continue;
-    }
-
-    if (character === ")") {
-      tokens.push({
-        type: "right-parenthesis",
-        position,
-      });
-
       position += 1;
       continue;
     }
 
     if (character === "∅") {
-      tokens.push({
-        type: "empty-set",
-        position,
-      });
-
-      position += 1;
-      continue;
-    }
-
-    if (character === "∪" || character === "|") {
-      tokens.push({
-        type: "operator",
-        value: "union",
-        position,
-      });
-
-      position += 1;
-      continue;
-    }
-
-    if (character === "∩" || character === "&") {
-      tokens.push({
-        type: "operator",
-        value: "intersection",
-        position,
-      });
-
-      position += 1;
-      continue;
-    }
-
-    if (character === "\\" || character === "-") {
-      tokens.push({
-        type: "operator",
-        value: "difference",
-        position,
-      });
-
-      position += 1;
-      continue;
-    }
-
-    if (character === "△" || character === "Δ" || character === "^") {
-      tokens.push({
-        type: "operator",
-        value: "symmetric-difference",
-        position,
-      });
-
-      position += 1;
-      continue;
-    }
-
-    if (character === "!") {
-      tokens.push({
-        type: "operator",
-        value: "complement",
-        position,
-      });
-
+      tokens.push({ type: "empty-set", position });
       position += 1;
       continue;
     }
 
     if (character === "'" || character === "′" || character === "ᶜ") {
+      tokens.push({ type: "complement-postfix", position });
+      position += 1;
+      continue;
+    }
+
+    let operator: Operator | null = null;
+
+    switch (character) {
+      case "∪":
+      case "|":
+        operator = "union";
+        break;
+      case "∩":
+      case "&":
+        operator = "intersection";
+        break;
+      case "\\":
+      case "-":
+        operator = "difference";
+        break;
+      case "△":
+      case "Δ":
+      case "^":
+        operator = "symmetric-difference";
+        break;
+      case "!":
+        operator = "complement";
+        break;
+    }
+
+    if (operator) {
       tokens.push({
-        type: "complement-postfix",
+        type: "operator",
+        value: operator,
         position,
       });
-
       position += 1;
       continue;
     }
 
     if (isIdentifierCharacter(character)) {
+      const knownName = setNames.find((name) => {
+        const candidate = source.slice(position, position + name.length);
+
+        if (candidate.toLocaleLowerCase() !== name.toLocaleLowerCase()) {
+          return false;
+        }
+
+        const nextCharacter = source[position + name.length] ?? "";
+
+        return !isIdentifierCharacter(nextCharacter);
+      });
+
+      if (knownName) {
+        tokens.push({
+          type: "identifier",
+          value: knownName,
+          position,
+        });
+        position += knownName.length;
+        continue;
+      }
+
       const start = position;
 
       while (position < source.length && isIdentifierCharacter(source[position] ?? "")) {
@@ -179,7 +178,6 @@ function tokenize(source: string): Token[] {
         value: source.slice(start, position),
         position: start,
       });
-
       continue;
     }
 
@@ -205,7 +203,7 @@ class ExpressionParser {
 
   constructor(diagram: VennDiagram, source: string) {
     this.diagram = diagram;
-    this.tokens = tokenize(source);
+    this.tokens = tokenize(source, diagram);
     this.universeMask = getUniverseMask(diagram.sets.length);
   }
 
