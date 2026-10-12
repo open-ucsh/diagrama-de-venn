@@ -1,5 +1,8 @@
 pub mod expression;
 pub mod search;
+
+#[cfg(target_arch = "wasm32")]
+mod wasm;
 use std::fmt;
 
 pub type RegionMask = u16;

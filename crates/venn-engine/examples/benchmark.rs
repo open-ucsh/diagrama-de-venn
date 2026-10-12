@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use venn_engine::VennEngine;
-use venn_engine::search::find_minimum_expression;
+use venn_engine::search::SearchSession;
 
 fn main() {
     let max_operations = std::env::args()
@@ -20,6 +20,8 @@ fn main() {
         .map(str::to_owned)
         .collect::<Vec<_>>();
 
+    let mut session = SearchSession::new(engine, names).unwrap();
+
     let a = engine.set_mask(0).unwrap();
     let b = engine.set_mask(1).unwrap();
     let c = engine.set_mask(2).unwrap();
@@ -36,26 +38,22 @@ fn main() {
         ("Four-set union", a | b | c | d),
         ("Four-set parity", a ^ b ^ c ^ d),
         ("Mixed selection", 0x6997),
+        ("Mixed selection, cached", 0x6997),
+        ("Parity after mixed selection", a ^ b ^ c ^ d),
     ];
 
     println!("Four sets · maximum {max_operations} operations");
+    println!("Shared search session");
     println!();
 
     for (label, target) in cases {
         let started = Instant::now();
-
-        let result = find_minimum_expression(&engine, &names, target, max_operations)
-            .expect("Benchmark inputs must be valid");
-
+        let result = session.find(target, max_operations).unwrap();
         let elapsed = started.elapsed();
 
         match result {
             Some(result) => {
-                assert_eq!(
-                    result.expression.evaluate(&engine).unwrap(),
-                    target,
-                    "The expression must reproduce the selected regions"
-                );
+                assert_eq!(result.expression.evaluate(&engine).unwrap(), target);
 
                 println!(
                     "{label}: {:.3} ms | {} operations | {}",
@@ -72,4 +70,10 @@ fn main() {
             }
         }
     }
+
+    println!();
+    println!(
+        "Complete reusable levels: 0 through {}",
+        session.completed_operation_count()
+    );
 }

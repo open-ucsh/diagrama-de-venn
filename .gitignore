@@ -25,3 +25,6 @@ dist-ssr
 
 # Rust
 /crates/venn-engine/target/
+
+# Generated WebAssembly package
+/crates/venn-engine/pkg/
