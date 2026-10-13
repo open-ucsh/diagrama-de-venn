@@ -84,7 +84,7 @@ export function VennCanvas() {
       <svg
         aria-describedby="venn-canvas-description"
         aria-label="Diagrama de Venn"
-        className="block h-auto w-full max-w-full touch-manipulation select-none lg:h-full lg:w-auto"
+        className="block h-full w-full touch-manipulation select-none"
         data-venn-canvas
         height={VENN_CANVAS_SIZE.height}
         onClick={handleCanvasClick}
@@ -170,9 +170,9 @@ export function VennCanvas() {
           : "No hay regiones seleccionadas."}
       </div>
 
-      <details className="mt-2 w-full max-w-xl rounded-md border border-border bg-white/95 p-3 shadow-sm">
+      <details className="venn-region-picker">
         <summary className="cursor-pointer text-sm font-semibold text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
-          Consultar y seleccionar regiones
+          Regiones
         </summary>
         <div aria-label="Regiones del diagrama">
           <p className="mt-2 text-xs text-text-muted">
