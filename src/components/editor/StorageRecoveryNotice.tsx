@@ -67,7 +67,11 @@ export function StorageRecoveryNotice() {
             elijas cómo continuar.
           </p>
 
-          {error !== null && <p className="mt-1 text-sm text-red-700">{error}</p>}
+          {error !== null && (
+            <p className="mt-1 text-sm text-red-700" role="alert">
+              {error}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2">

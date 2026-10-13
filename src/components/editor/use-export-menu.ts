@@ -40,6 +40,7 @@ export function useExportMenu() {
       : null;
 
   function closeMenu() {
+    detailsRef.current?.querySelector("summary")?.focus();
     detailsRef.current?.removeAttribute("open");
     setIsOpen(false);
     setMessage(null);

@@ -106,9 +106,11 @@ export function FormulaBar() {
         </div>
 
         <div
-          aria-live="polite"
+          aria-atomic="true"
+          aria-live={statusError ? "assertive" : "polite"}
           className="venn-formula-bar__status flex min-h-8 items-center"
           id="venn-formula-status"
+          role={statusError ? "alert" : "status"}
         >
           {statusError ? (
             <p className="flex items-center gap-1.5 text-xs font-medium text-red-600">
