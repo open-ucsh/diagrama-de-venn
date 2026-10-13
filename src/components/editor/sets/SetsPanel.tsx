@@ -34,6 +34,7 @@ export function SetsPanel() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
 
   const canCreateSet = sets.length < MAX_SETS;
   const canRemoveSet = sets.length > MIN_SETS;
@@ -43,9 +44,11 @@ export function SetsPanel() {
 
     setCreateError(null);
     setIsMobilePanelOpen(true);
+    const name = getNextSetName(sets);
 
     try {
-      createSet(getNextSetName(sets), getNextSetPosition(sets));
+      createSet(name, getNextSetPosition(sets));
+      setAnnouncement(`Conjunto ${name} añadido.`);
     } catch (error) {
       setCreateError(getErrorMessage(error));
     }
@@ -67,12 +70,22 @@ export function SetsPanel() {
     try {
       if (draftName !== set.name) {
         renameSet(set.id, draftName);
+        setAnnouncement(`Conjunto renombrado a ${draftName}.`);
       }
 
       cancelEditing();
     } catch (error) {
       setNameError(getErrorMessage(error));
     }
+  }
+
+  function handleToggleVisibility(setId: string) {
+    const set = sets.find((currentSet) => currentSet.id === setId);
+
+    if (!set) return;
+
+    toggleSetVisibility(setId);
+    setAnnouncement(set.hidden ? `Conjunto ${set.name} mostrado.` : `Conjunto ${set.name} oculto.`);
   }
 
   function handleRemoveSet(set: VennSet) {
@@ -84,6 +97,7 @@ export function SetsPanel() {
 
     removeSet(set.id);
     setCreateError(null);
+    setAnnouncement(`Conjunto ${set.name} eliminado.`);
 
     if (editingSetId === set.id) {
       cancelEditing();
@@ -91,12 +105,15 @@ export function SetsPanel() {
   }
 
   return (
-    <aside className="venn-sets-panel__card shrink-0 border-b border-border bg-white lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
+    <aside
+      aria-label="Editor de conjuntos"
+      className="venn-sets-panel__card shrink-0 border-b border-border bg-white lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0"
+    >
       <header className="venn-sets-panel__header border-b border-border">
         <button
           aria-controls="venn-sets-panel"
           aria-expanded={isMobilePanelOpen}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left lg:hidden"
+          className="flex w-full items-center gap-3 px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-primary lg:hidden"
           onClick={() => setIsMobilePanelOpen((current) => !current)}
           type="button"
         >
@@ -138,6 +155,9 @@ export function SetsPanel() {
         ].join(" ")}
         id="venn-sets-panel"
       >
+        <div aria-atomic="true" aria-live="polite" className="sr-only">
+          {announcement}
+        </div>
         {sets.map((set, index) => {
           const isEditing = editingSetId === set.id;
           const color = getSetColor(set, index);
@@ -156,7 +176,7 @@ export function SetsPanel() {
                 cancelEditing={cancelEditing}
                 saveName={saveName}
                 setSetColor={setSetColor}
-                toggleSetVisibility={toggleSetVisibility}
+                toggleSetVisibility={handleToggleVisibility}
                 startEditing={startEditing}
                 handleRemoveSet={handleRemoveSet}
               />
@@ -184,7 +204,7 @@ export function SetsPanel() {
         )}
 
         <button
-          className="venn-sets-panel__add-button mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-sm font-bold text-text-muted transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary disabled:cursor-not-allowed disabled:bg-surface disabled:text-text-muted"
+          className="venn-sets-panel__add-button mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-sm font-bold text-text-muted transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:bg-surface disabled:text-text-muted"
           disabled={!canCreateSet}
           onClick={handleCreateSet}
           type="button"

@@ -86,7 +86,7 @@ export function SetPanelItem({
 
             <button
               aria-label="Cancelar edición"
-              className="venn-sets-panel__action grid size-8 shrink-0 place-items-center text-text-muted transition-colors hover:bg-surface hover:text-text"
+              className="venn-sets-panel__action grid size-8 shrink-0 place-items-center text-text-muted transition-colors hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
               onClick={cancelEditing}
               title="Cancelar"
               type="button"
@@ -96,7 +96,7 @@ export function SetPanelItem({
 
             <button
               aria-label="Guardar nombre"
-              className="venn-sets-panel__action grid size-8 shrink-0 place-items-center bg-brand-primary text-white transition-colors hover:bg-brand-primary-hover"
+              className="venn-sets-panel__action grid size-8 shrink-0 place-items-center bg-brand-primary text-white transition-colors hover:bg-brand-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
               onClick={() => saveName(set)}
               title="Guardar nombre"
               type="button"
@@ -125,7 +125,7 @@ export function SetPanelItem({
             <Circle aria-hidden="true" className="size-4.5" />
             <input
               aria-label={`Cambiar color del conjunto ${set.name}`}
-              className="absolute inset-0 cursor-pointer opacity-0"
+              className="absolute inset-0 cursor-pointer opacity-0 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
               onChange={(event) => {
                 setSetColor(set.id, event.target.value);
               }}
@@ -147,7 +147,7 @@ export function SetPanelItem({
               aria-label={
                 set.hidden ? `Mostrar conjunto ${set.name}` : `Ocultar conjunto ${set.name}`
               }
-              className="venn-sets-panel__action grid size-8 place-items-center text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+              className="venn-sets-panel__action grid size-8 place-items-center text-text-muted transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
               onClick={() => toggleSetVisibility(set.id)}
               title={set.hidden ? "Mostrar conjunto" : "Ocultar temporalmente"}
               type="button"
@@ -161,7 +161,7 @@ export function SetPanelItem({
 
             <button
               aria-label={`Renombrar conjunto ${set.name}`}
-              className="venn-sets-panel__action grid size-8 place-items-center text-text-muted transition-colors hover:bg-surface-hover hover:text-brand-primary"
+              className="venn-sets-panel__action grid size-8 place-items-center text-text-muted transition-colors hover:bg-surface-hover hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
               onClick={() => startEditing(set)}
               title="Renombrar conjunto"
               type="button"
@@ -171,7 +171,7 @@ export function SetPanelItem({
 
             <button
               aria-label={`Eliminar conjunto ${set.name}`}
-              className="venn-sets-panel__action grid size-8 place-items-center text-text-muted transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30"
+              className="venn-sets-panel__action grid size-8 place-items-center text-text-muted transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:opacity-30"
               disabled={!canRemoveSet}
               onClick={() => handleRemoveSet(set)}
               title={
