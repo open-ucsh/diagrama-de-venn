@@ -28,3 +28,8 @@ dist-ssr
 
 # Generated WebAssembly package
 /crates/venn-engine/pkg/
+
+# Playwright
+/playwright-report/
+/test-results/
+/blob-report/

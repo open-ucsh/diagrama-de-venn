@@ -43,12 +43,19 @@ export function ExportMenu() {
       }}
       ref={detailsRef}
     >
-      <summary className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold text-brand-primary transition-colors hover:border-brand-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
+      <summary
+        aria-controls="export-menu"
+        className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold text-brand-primary transition-colors hover:border-brand-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+      >
         <Download aria-hidden="true" className="size-4" />
         <span>Exportar</span>
       </summary>
 
-      <div className="fixed top-20 right-3 left-3 z-50 overflow-hidden rounded-md border border-border bg-white text-text shadow-lg sm:absolute sm:top-full sm:right-0 sm:left-auto sm:mt-2 sm:w-80">
+      <div
+        aria-label="Opciones de exportación y uso compartido"
+        className="fixed top-20 right-3 left-3 z-50 overflow-hidden rounded-md border border-border bg-white text-text shadow-lg sm:absolute sm:top-full sm:right-0 sm:left-auto sm:mt-2 sm:w-80"
+        id="export-menu"
+      >
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
             <p className="text-sm font-semibold text-brand-primary">Exportar y compartir</p>
@@ -57,7 +64,7 @@ export function ExportMenu() {
 
           <button
             aria-label="Cerrar menú"
-            className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text"
+            className="grid size-8 shrink-0 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
             onClick={closeMenu}
             title="Cerrar"
             type="button"
@@ -68,7 +75,7 @@ export function ExportMenu() {
 
         <div className="grid gap-0.5 p-2">
           <button
-            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface"
+            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
             onClick={handleSvgExport}
             type="button"
           >
@@ -77,7 +84,7 @@ export function ExportMenu() {
           </button>
 
           <button
-            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface"
+            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
             onClick={() => void handlePngExport()}
             type="button"
           >
@@ -86,7 +93,7 @@ export function ExportMenu() {
           </button>
 
           <button
-            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface"
+            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
             onClick={handleJsonExport}
             type="button"
           >
@@ -98,7 +105,7 @@ export function ExportMenu() {
 
         <div className="border-t border-border p-2">
           <button
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:opacity-40"
             disabled={!formula}
             onClick={() => void copyFormula()}
             type="button"
@@ -112,7 +119,7 @@ export function ExportMenu() {
           </button>
 
           <button
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
             onClick={() => void copyShareLink()}
             type="button"
           >
@@ -129,7 +136,7 @@ export function ExportMenu() {
 
         <div className="border-t border-border p-2">
           <button
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
             onClick={() => fileInputRef.current?.click()}
             type="button"
           >
@@ -149,7 +156,9 @@ export function ExportMenu() {
 
         {message && (
           <div
-            aria-live="polite"
+            aria-atomic="true"
+            aria-live={message.type === "error" ? "assertive" : "polite"}
+            role={message.type === "error" ? "alert" : "status"}
             className={[
               "border-t border-border px-4 py-3 text-xs font-medium",
               message.type === "success"

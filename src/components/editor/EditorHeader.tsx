@@ -119,7 +119,7 @@ export function EditorHeader() {
             </div>
           ) : (
             <button
-              className="group flex max-w-full items-center gap-2 text-left"
+              className="group flex max-w-full items-center gap-2 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
               onClick={startEditing}
               title="Cambiar nombre del diagrama"
               type="button"
