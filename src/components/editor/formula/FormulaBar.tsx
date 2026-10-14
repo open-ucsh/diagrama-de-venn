@@ -1,5 +1,6 @@
 import { Check, CircleAlert, LoaderCircle, Sigma, X } from "lucide-react";
 
+import { FormulaElements } from "./FormulaElements";
 import { FormulaHistoryMenu } from "./FormulaHistoryMenu";
 import { useFormulaEditor } from "./use-formula-editor";
 
@@ -136,6 +137,8 @@ export function FormulaBar() {
             </p>
           )}
         </div>
+
+        <FormulaElements formula={formula} />
       </div>
 
       <div className="venn-formula-bar__actions flex flex-wrap items-center gap-1.5 border-t border-border px-3 py-2.5 sm:gap-2 sm:px-4">
