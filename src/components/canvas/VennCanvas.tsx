@@ -1,10 +1,12 @@
 import { useState, type MouseEvent } from "react";
 
+import { formatElementLabels } from "@/domain/venn/elements";
 import { VENN_CANVAS_SIZE } from "@/domain/venn/geometry";
 import type { Point, VennSet } from "@/domain/venn/models";
+import { getElementsInRegion } from "@/domain/venn/queries";
 import {
+  findVennRegion,
   getRegionAtPoint,
-  getRegionLabel,
   getVennRegions,
   type VennRegion,
 } from "@/domain/venn/regions";
@@ -40,6 +42,8 @@ function getCanvasPoint(event: MouseEvent<SVGSVGElement>): Point | null {
 }
 
 function getRegionFormula(sets: VennSet[], region: VennRegion): string {
+  if (sets.length === 0) return "U";
+
   const includedSetIds = new Set(region.setIds);
 
   return sets.map((set) => (includedSetIds.has(set.id) ? set.name : `${set.name}ᶜ`)).join(" ∩ ");
@@ -49,35 +53,43 @@ export function VennCanvas() {
   const diagram = useVennStore((state) => state.diagram);
   const selectedRegionIds = useVennStore((state) => state.selectedRegionIds);
   const toggleRegionSelection = useVennStore((state) => state.toggleRegionSelection);
-  const [hoveredRegion, setHoveredRegion] = useState<VennRegion | null>(null);
+
+  const [hoverPoint, setHoverPoint] = useState<Point | null>(null);
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
 
   const universeBounds = getUniverseBounds(diagram.sets);
+  const regions = getVennRegions(diagram);
+
+  const outsideUniverse = hoverPoint !== null && !isPointInsideUniverse(hoverPoint, universeBounds);
+
+  const hoveredRegion =
+    hoverPoint !== null && !outsideUniverse ? getRegionAtPoint(diagram, hoverPoint) : null;
+
+  const selectedId =
+    lastSelectedId && selectedRegionIds.includes(lastSelectedId)
+      ? lastSelectedId
+      : selectedRegionIds[selectedRegionIds.length - 1];
+
+  const selectedRegion = selectedId ? findVennRegion(diagram, selectedId) : undefined;
+
+  const activeRegion = outsideUniverse ? null : (hoveredRegion ?? selectedRegion ?? null);
+
+  const activeElements = activeRegion ? getElementsInRegion(diagram, activeRegion) : [];
+
+  function toggleRegion(region: VennRegion) {
+    const wasSelected = selectedRegionIds.includes(region.id);
+
+    toggleRegionSelection(region.id);
+    setLastSelectedId(wasSelected ? null : region.id);
+  }
 
   function handleCanvasClick(event: MouseEvent<SVGSVGElement>) {
     const point = getCanvasPoint(event);
 
     if (!point || !isPointInsideUniverse(point, universeBounds)) return;
 
-    const region = getRegionAtPoint(diagram, point);
-    toggleRegionSelection(region.id);
+    toggleRegion(getRegionAtPoint(diagram, point));
   }
-
-  function handleCanvasMouseMove(event: MouseEvent<SVGSVGElement>) {
-    const point = getCanvasPoint(event);
-
-    if (!point || !isPointInsideUniverse(point, universeBounds)) {
-      setHoveredRegion(null);
-      return;
-    }
-
-    const region = getRegionAtPoint(diagram, point);
-
-    setHoveredRegion((currentRegion) => (currentRegion?.id === region.id ? currentRegion : region));
-  }
-
-  const hoveredFormula =
-    hoveredRegion === null ? null : getRegionFormula(diagram.sets, hoveredRegion);
-  const regions = getVennRegions(diagram);
 
   return (
     <>
@@ -88,8 +100,8 @@ export function VennCanvas() {
         data-venn-canvas
         height={VENN_CANVAS_SIZE.height}
         onClick={handleCanvasClick}
-        onMouseLeave={() => setHoveredRegion(null)}
-        onMouseMove={handleCanvasMouseMove}
+        onMouseLeave={() => setHoverPoint(null)}
+        onMouseMove={(event) => setHoverPoint(getCanvasPoint(event))}
         preserveAspectRatio="xMidYMid meet"
         role="img"
         viewBox={`0 0 ${VENN_CANVAS_SIZE.width} ${VENN_CANVAS_SIZE.height}`}
@@ -137,6 +149,7 @@ export function VennCanvas() {
             return (
               <g key={set.id} opacity={set.hidden ? 0.18 : 1}>
                 <SetShape fill="none" set={set} stroke={color} strokeWidth={3} />
+
                 <text
                   className="venn-set-label"
                   dominantBaseline="middle"
@@ -154,48 +167,74 @@ export function VennCanvas() {
           })}
         </g>
 
-        {hoveredFormula && <RegionTooltip bounds={universeBounds} formula={hoveredFormula} />}
+        {(activeRegion || outsideUniverse) && (
+          <RegionTooltip
+            bounds={universeBounds}
+            elements={activeElements.map((element) => element.label)}
+            formula={activeRegion ? getRegionFormula(diagram.sets, activeRegion) : ""}
+            outsideSets={activeRegion?.setIds.length === 0}
+            outsideUniverse={outsideUniverse}
+          />
+        )}
       </svg>
 
       <p className="sr-only" id="venn-canvas-description">
-        Selecciona regiones haciendo clic en el diagrama. También puedes usar la lista accesible de
-        regiones que aparece después del gráfico.
+        Selecciona regiones haciendo clic en el diagrama. El tooltip muestra sus elementos y
+        cardinalidad. La lista Regiones permite consultar todos los elementos y seleccionar usando
+        el teclado.
       </p>
 
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {selectedRegionIds.length > 0
-          ? `${selectedRegionIds.length} ${
-              selectedRegionIds.length === 1 ? "región seleccionada" : "regiones seleccionadas"
-            }.`
+      <div aria-atomic="true" aria-live="polite" className="sr-only">
+        {selectedRegion
+          ? `${getRegionFormula(diagram.sets, selectedRegion)}.
+             Elementos: ${formatElementLabels(
+               getElementsInRegion(diagram, selectedRegion).map((element) => element.label),
+             )}.
+             Cardinalidad: ${getElementsInRegion(diagram, selectedRegion).length}.`
           : "No hay regiones seleccionadas."}
       </div>
 
-      <details className="mt-2 w-full max-w-xl rounded-md border border-border bg-white/95 p-3 shadow-sm">
+      <details className="absolute right-3 top-3 z-20 max-w-sm rounded-lg border border-border bg-white/95 p-3 shadow-sm">
         <summary className="cursor-pointer text-sm font-semibold text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
-          Consultar y seleccionar regiones
+          Regiones
         </summary>
+
         <div aria-label="Regiones del diagrama">
           <p className="mt-2 text-xs text-text-muted">
-            Selecciona una o más regiones para incluirlas en la fórmula.
+            Selecciona regiones para incluirlas en la fórmula.
           </p>
-          <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto">
+
+          <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto">
             {regions.map((region) => {
-              const label = getRegionLabel(diagram, region);
+              const formula = getRegionFormula(diagram.sets, region);
               const selected = selectedRegionIds.includes(region.id);
+              const elements = getElementsInRegion(diagram, region);
+              const result = formatElementLabels(elements.map((element) => element.label));
 
               return (
-                <li className="flex items-center gap-2 text-xs" key={region.id}>
+                <li key={region.id}>
                   <button
                     aria-pressed={selected}
-                    className="rounded px-1 py-1 text-left text-brand-primary underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
-                    onClick={() => toggleRegionSelection(region.id)}
+                    className={[
+                      "w-full rounded-md px-2 py-2 text-left text-xs transition-colors hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary",
+                      selected ? "bg-surface-hover" : "",
+                    ].join(" ")}
+                    onClick={() => toggleRegion(region)}
                     type="button"
                   >
-                    {selected ? `Quitar ${label}` : `Seleccionar ${label}`}
+                    <span className="block font-semibold text-brand-primary">{formula}</span>
+
+                    <span className="mt-1 block break-words text-text">Elementos: {result}</span>
+
+                    <span className="mt-1 block text-text-muted">
+                      Cardinalidad: {elements.length}
+                      {region.setIds.length === 0
+                        ? " · Dentro de U, fuera de los conjuntos"
+                        : elements.length === 0
+                          ? " · Región vacía"
+                          : ""}
+                    </span>
                   </button>
-                  <span className="font-mono text-text-muted">
-                    {getRegionFormula(diagram.sets, region)}
-                  </span>
                 </li>
               );
             })}
