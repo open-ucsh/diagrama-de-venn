@@ -45,7 +45,7 @@ export function EditorHeader() {
 
   return (
     <header className="sticky top-0 z-50 shrink-0 border-b border-border bg-white text-text">
-      <div className="mx-auto flex min-h-20 max-w-screen-2xl items-center gap-3 px-3 sm:gap-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-16 w-full max-w-screen-2xl items-center gap-2 px-3 sm:gap-4 sm:px-6 lg:px-8">
         <a
           aria-label="Universidad Católica Silva Henríquez"
           className="flex shrink-0 items-center rounded-md p-1 transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
@@ -53,14 +53,17 @@ export function EditorHeader() {
         >
           <img
             alt="Universidad Católica Silva Henríquez"
-            className="size-12 shrink-0 object-contain"
+            className="size-9 shrink-0 object-contain sm:size-12"
             src="/favicon.png"
           />
         </a>
 
-        <span aria-hidden="true" className="h-10 w-px shrink-0 bg-border" />
+        <span aria-hidden="true" className="hidden h-10 w-px shrink-0 bg-border sm:block" />
 
-        <FileText aria-hidden="true" className="size-5 shrink-0 text-brand-primary" />
+        <FileText
+          aria-hidden="true"
+          className="hidden size-5 shrink-0 text-brand-primary sm:block"
+        />
 
         <div className="min-w-0 flex-1">
           {isEditing ? (
@@ -119,12 +122,12 @@ export function EditorHeader() {
             </div>
           ) : (
             <button
-              className="group flex max-w-full items-center gap-2 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+              className="group flex w-full min-w-0 items-center gap-2 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
               onClick={startEditing}
               title="Cambiar nombre del diagrama"
               type="button"
             >
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 <span className="block truncate text-base leading-6 font-bold tracking-tight text-brand-primary sm:text-lg">
                   {diagramName}
                 </span>
@@ -134,7 +137,7 @@ export function EditorHeader() {
               </span>
               <Pencil
                 aria-hidden="true"
-                className="size-3.5 shrink-0 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                className="hidden size-3.5 shrink-0 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:block"
               />
             </button>
           )}
@@ -143,11 +146,11 @@ export function EditorHeader() {
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <ExportMenu />
 
-          <span aria-hidden="true" className="mx-1 h-8 w-px bg-border sm:mx-2" />
+          <span aria-hidden="true" className="mx-2 hidden h-8 w-px bg-border sm:block" />
 
           <button
             aria-label="Deshacer"
-            className="grid size-10 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-hover hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:opacity-35"
+            className="hidden size-10 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-hover hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:opacity-35 sm:grid"
             disabled={!canUndo}
             onClick={undo}
             title="Deshacer (Ctrl + Z)"
@@ -158,7 +161,7 @@ export function EditorHeader() {
 
           <button
             aria-label="Rehacer"
-            className="grid size-10 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-hover hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:opacity-35"
+            className="hidden size-10 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-hover hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:opacity-35 sm:grid"
             disabled={!canRedo}
             onClick={redo}
             title="Rehacer (Ctrl + Shift + Z)"

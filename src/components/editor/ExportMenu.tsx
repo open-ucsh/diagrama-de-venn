@@ -1,3 +1,5 @@
+import { useVennStore } from "@/state/venn-store";
+
 import { useExportMenu } from "./use-export-menu";
 
 import {
@@ -8,6 +10,9 @@ import {
   FileJson,
   Image,
   Link2,
+  MoreHorizontal,
+  Redo2,
+  Undo2,
   Upload,
   X,
 } from "lucide-react";
@@ -31,6 +36,11 @@ export function ExportMenu() {
     handleImport,
   } = useExportMenu();
 
+  const canUndo = useVennStore((state) => state.past.length > 0);
+  const canRedo = useVennStore((state) => state.future.length > 0);
+  const undo = useVennStore((state) => state.undo);
+  const redo = useVennStore((state) => state.redo);
+
   return (
     <details
       className="relative"
@@ -45,20 +55,25 @@ export function ExportMenu() {
     >
       <summary
         aria-controls="export-menu"
-        className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-semibold text-brand-primary transition-colors hover:border-brand-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+        className="flex size-11 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-white text-brand-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary sm:h-10 sm:w-auto sm:gap-2 sm:px-3"
       >
-        <Download aria-hidden="true" className="size-4" />
-        <span>Exportar</span>
+        <MoreHorizontal aria-hidden="true" className="size-5 sm:hidden" />
+        <span className="sr-only sm:hidden">Acciones del diagrama</span>
+        <Download aria-hidden="true" className="hidden size-4 sm:block" />
+        <span className="hidden text-sm font-semibold sm:inline">Exportar</span>
       </summary>
 
       <div
         aria-label="Opciones de exportación y uso compartido"
-        className="fixed top-20 right-3 left-3 z-50 overflow-hidden rounded-md border border-border bg-white text-text shadow-lg sm:absolute sm:top-full sm:right-0 sm:left-auto sm:mt-2 sm:w-80"
+        className="fixed top-16 right-3 left-3 z-50 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-lg border border-border bg-white text-text shadow-lg sm:absolute sm:top-full sm:right-0 sm:left-auto sm:mt-2 sm:w-80"
         id="export-menu"
       >
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
-            <p className="text-sm font-semibold text-brand-primary">Exportar y compartir</p>
+            <p className="text-sm font-semibold text-brand-primary">
+              <span className="sm:hidden">Acciones del diagrama</span>
+              <span className="hidden sm:inline">Exportar y compartir</span>
+            </p>
             <p className="mt-1 text-xs text-text-muted">Guarda o comparte tu diagrama.</p>
           </div>
 
@@ -72,6 +87,34 @@ export function ExportMenu() {
             <X aria-hidden="true" className="size-4" />
           </button>
         </header>
+
+        <div className="grid grid-cols-2 gap-1 border-b border-border p-2 sm:hidden">
+          <button
+            className="flex min-h-11 items-center justify-center gap-2 rounded-md text-sm font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!canUndo}
+            onClick={() => {
+              undo();
+              closeMenu();
+            }}
+            type="button"
+          >
+            <Undo2 aria-hidden="true" className="size-4" />
+            Deshacer
+          </button>
+
+          <button
+            className="flex min-h-11 items-center justify-center gap-2 rounded-md text-sm font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!canRedo}
+            onClick={() => {
+              redo();
+              closeMenu();
+            }}
+            type="button"
+          >
+            <Redo2 aria-hidden="true" className="size-4" />
+            Rehacer
+          </button>
+        </div>
 
         <div className="grid gap-0.5 p-2">
           <button
