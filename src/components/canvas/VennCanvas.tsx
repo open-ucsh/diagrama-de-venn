@@ -224,7 +224,9 @@ export function VennCanvas() {
                   >
                     <span className="block font-semibold text-brand-primary">{formula}</span>
 
-                    <span className="mt-1 block break-words text-text">Elementos: {result}</span>
+                    <span className="mt-1 block wrap-break-words text-text">
+                      Elementos: {result}
+                    </span>
 
                     <span className="mt-1 block text-text-muted">
                       Cardinalidad: {elements.length}

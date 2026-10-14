@@ -37,7 +37,7 @@ export function FormulaElements({ formula }: FormulaElementsProps) {
         </span>
       </summary>
 
-      <p className="max-h-24 overflow-y-auto break-words rounded-md bg-surface px-2.5 py-2 font-mono leading-5">
+      <p className="max-h-24 overflow-y-auto wrap-break-words rounded-md bg-surface px-2.5 py-2 font-mono leading-5">
         {result}
       </p>
     </details>
