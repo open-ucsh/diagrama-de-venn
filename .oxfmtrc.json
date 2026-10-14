@@ -1,4 +1,14 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["CHANGELOG.md", "playwright-report/**", "test-results/**", "blob-report/**"]
+  "ignorePatterns": [
+    "CHANGELOG.md",
+    "node_modules/**",
+    "dist/**",
+    "dist-ssr/**",
+    "crates/venn-engine/target/**",
+    "crates/venn-engine/pkg/**",
+    "playwright-report/**",
+    "test-results/**",
+    "blob-report/**"
+  ]
 }

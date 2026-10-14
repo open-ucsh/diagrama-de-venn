@@ -1,47 +1,92 @@
-# Diagrama de venn ✨
+# Diagrama de Venn ✨
 
-Un editor visual para crear y explorar diagramas de Venn.
+Creamos este editor para quienes están aprendiendo **teoría de conjuntos**,
+especialmente los estudiantes de **Lógica y Razonamiento Matemático en la UCSH**.
 
-## 🎓 ¿Para qué sirve?
+La idea nació en clases: dibujar círculos a mano una y otra vez en el
+cuaderno se volvía tedioso. Queríamos dedicar más tiempo a **entender los
+conjuntos** y menos a volver a dibujarlos.
 
-Creado para estudiantes y por estudiantes de Logica y Razonamiento Matemático que están aprendiendo teoría de conjuntos, lógica y razonamiento matemático.
+Aquí puedes crear diagramas, seleccionar regiones y explorar las fórmulas
+que las representan.
 
-Permite representar conjuntos, elementos y sus relaciones de forma visual para entender mejor operaciones como la unión, intersección, diferencia y complemento.
+> _Primero comprende los conjuntos. Después resuelve el problema._
 
-## 🚀 Objetivo
+### 🌐 [Abrir el editor](https://ucsh-modelador.vercel.app/)
 
-Construye diagramas claros, organiza sus elementos y descubre qué representa cada región.
+![Editor de diagramas de Venn](https://raw.githubusercontent.com/open-ucsh/.github/main/assets/banner.jpeg)
 
-> Primero comprende los conjuntos. Después resuelve el problema.
-> ![Venn Designer](https://raw.githubusercontent.com/open-ucsh/.github/main/assets/banner.jpeg)
+## 🧭 Cómo usarlo
 
-## Versionado y releases
+1. **Crea tus conjuntos** y ajusta sus nombres.
+2. **Selecciona regiones** del diagrama para obtener una fórmula.
+3. **Escribe una fórmula** para ver las regiones que representa en tiempo real.
 
-El proyecto usa [Semantic Versioning](https://semver.org/lang/es/):
+Puedes explorar el diagrama desde la selección visual o desde la expresión.
+La idea es que ambas te ayuden a entender el mismo problema.
 
-- **MAJOR**: cambios incompatibles que requieren migración.
-- **MINOR**: funcionalidad compatible con versiones anteriores.
-- **PATCH**: correcciones compatibles.
+## 🛠️ Desarrollo local
 
-Los cambios visibles para usuarios se registran en
-[`CHANGELOG.md`](./CHANGELOG.md). Cada release debe tener una sección
-para la versión publicada; los cambios incompatibles se documentan en
-`### Breaking Changes` junto con sus pasos de migración.
+Necesitas **Node.js 24**, **pnpm 11.5.1**, **Bash** y **curl**.
+El script de preparación instala Rust y wasm-pack en las versiones del proyecto.
 
-### Flujo automático de publicación
+### Preparar e iniciar
 
-El proyecto usa [Release Please](https://github.com/googleapis/release-please)
-para convertir los commits [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/)
-en releases:
+Desde la raíz del repositorio:
 
-1. Los commits `fix:` generan versiones **PATCH** y `feat:` versiones
-   **MINOR**.
-2. Los commits con `!` o `BREAKING CHANGE:` generan versiones **MAJOR** y
-   deben incluir instrucciones de migración.
-3. Release Please abre un Pull Request con la versión y el changelog
-   actualizados.
-4. Al hacer merge del Pull Request, crea el tag y el GitHub Release
-   automáticamente.
+```bash
+pnpm install --frozen-lockfile
+bash scripts/setup-rust.sh
+pnpm wasm:build
+pnpm dev
+```
 
-La primera versión estable se configuró como `1.0.0`; hasta que se fusione el
-primer Pull Request de release, `package.json` puede permanecer en `0.0.0`.
+> **Importante:** compila WASM antes del primer inicio y después de modificar
+> el motor Rust con `pnpm wasm:build`.
+
+### Verificar el proyecto
+
+Este comando revisa **formato, tipos, lint, pruebas y compilación**:
+
+```bash
+pnpm check
+```
+
+Para ejecutar las pruebas de navegador, instala Chromium la primera vez
+y genera una compilación de producción:
+
+```bash
+pnpm exec playwright install chromium
+pnpm build
+pnpm test:e2e
+```
+
+Playwright inicia el servidor de vista previa automáticamente.
+
+## 🤝 Contribuir
+
+Puedes ayudar **reportando errores**, **proponiendo ideas**, **mejorando la
+interfaz**, **aportando ejercicios** o **escribiendo código**.
+
+Si algo resulta confuso al usar el editor, también nos sirve saberlo.
+Queremos que sea útil para estudiantes, profesores y cualquier persona
+que esté empezando.
+
+**[Lee cómo contribuir →](./CONTRIBUTING.md)**
+
+## 🎓 Open UCSH
+
+Este proyecto forma parte de **[Open UCSH](https://github.com/open-ucsh)**,
+una iniciativa que está naciendo desde estudiantes de la
+**Universidad Católica Silva Henríquez**.
+
+Queremos compartir lo que aprendemos, construir herramientas útiles y
+conectar con otras personas a través de nuestros proyectos.
+**No necesitas estudiar en la UCSH para participar.**
+
+_Por ahora, la iniciativa no cuenta con respaldo institucional formal de
+la universidad._
+
+## 📄 Licencia
+
+Este proyecto se distribuye bajo la **[licencia MIT](./LICENSE)**.
