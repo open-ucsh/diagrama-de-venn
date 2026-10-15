@@ -3,6 +3,8 @@ use wasm_bindgen::prelude::*;
 use crate::VennEngine;
 use crate::search::SearchSession;
 
+const MAX_OPERATION_LIMIT: u32 = 127;
+
 #[wasm_bindgen]
 pub struct WasmExpressionSession {
     session: SearchSession,
@@ -11,36 +13,43 @@ pub struct WasmExpressionSession {
 #[wasm_bindgen]
 impl WasmExpressionSession {
     #[wasm_bindgen(constructor)]
-    pub fn new(names_json: &str) -> Result<WasmExpressionSession, JsValue> {
-        let names: Vec<String> = serde_json::from_str(names_json)
-            .map_err(|error| JsValue::from_str(&format!("Invalid set names: {error}")))?;
+    pub fn new(names_json: &str) -> Result<Self, JsValue> {
+        let names: Vec<String> = serde_json::from_str(names_json).map_err(|error| {
+            JsValue::from_str(&format!(
+                "No se pudieron interpretar los nombres de los conjuntos: {error}"
+            ))
+        })?;
 
         let engine =
             VennEngine::new(names.len()).map_err(|error| JsValue::from_str(&error.to_string()))?;
 
         let session = SearchSession::new(engine, names)
-            .map_err(|error| JsValue::from_str(&format!("Cannot create session: {error:?}")))?;
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
 
         Ok(Self { session })
     }
 
-    /// Returns a JSON result, or JSON null when the limit is insufficient.
+    /// Devuelve el resultado como JSON, o `null` si el límite es insuficiente.
     #[wasm_bindgen(js_name = findMinimum)]
     pub fn find_minimum(&mut self, target: u32, max_operations: u32) -> Result<String, JsValue> {
-        let target =
-            u16::try_from(target).map_err(|_| JsValue::from_str("Target must fit in 16 bits"))?;
+        let target = u16::try_from(target)
+            .map_err(|_| JsValue::from_str("La selección debe poder representarse con 16 bits."))?;
 
-        // A canonical expression for four sets requires at most
-        // 16 terms × 7 operations per term + 15 unions = 127 operations.
-        // This is a representability bound, not a recommended search depth.
-        if max_operations > 127 {
-            return Err(JsValue::from_str("Operation limit must not exceed 127"));
+        // Una expresión canónica de cuatro conjuntos admite hasta 127 operaciones:
+        // 16 términos de 7 operaciones, unidos mediante 15 uniones.
+        // Es un límite de representación, no de tiempo de ejecución.
+        if max_operations > MAX_OPERATION_LIMIT {
+            return Err(JsValue::from_str(&format!(
+                "El límite no puede superar {MAX_OPERATION_LIMIT} operaciones."
+            )));
         }
 
         let result = self
             .session
             .find(target, max_operations as usize)
-            .map_err(|error| JsValue::from_str(&format!("Search failed: {error:?}")))?;
+            .map_err(|error| {
+                JsValue::from_str(&format!("No se pudo completar la búsqueda: {error}"))
+            })?;
 
         let value = match result {
             Some(result) => serde_json::json!({

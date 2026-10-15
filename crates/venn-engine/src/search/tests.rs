@@ -1,6 +1,6 @@
-use crate::BinaryOperator;
+use crate::{BinaryOperator, EngineError, VennEngine};
 
-use super::*;
+use super::{SearchError, SearchSession, find_minimum_expression};
 
 fn names(set_count: usize) -> Vec<String> {
     ["A", "B", "C", "D"][..set_count]
@@ -10,7 +10,7 @@ fn names(set_count: usize) -> Vec<String> {
 }
 
 #[test]
-fn session_reuses_levels_and_results() {
+fn reutiliza_los_niveles_y_los_resultados_de_la_sesion() {
     let engine = VennEngine::new(3).unwrap();
     let mut session = SearchSession::new(engine, names(3)).unwrap();
 
@@ -25,7 +25,7 @@ fn session_reuses_levels_and_results() {
     assert_eq!(session.completed_operation_count(), completed);
     assert_eq!(completed, 1);
 
-    // A cached result must still respect a smaller requested limit.
+    // El resultado guardado también debe respetar un límite menor.
     assert!(session.find(target, 1).unwrap().is_none());
 
     let union = engine.set_mask(0).unwrap() | engine.set_mask(1).unwrap();
@@ -37,7 +37,7 @@ fn session_reuses_levels_and_results() {
 }
 
 #[test]
-fn shared_session_matches_fresh_searches() {
+fn la_sesion_compartida_coincide_con_busquedas_independientes() {
     let engine = VennEngine::new(2).unwrap();
     let names = names(2);
     let mut session = SearchSession::new(engine, names.clone()).unwrap();
@@ -48,14 +48,15 @@ fn shared_session_matches_fresh_searches() {
             .unwrap()
             .unwrap();
 
-        assert_eq!(shared.text, fresh.text);
+        assert_eq!(shared.text, fresh.text, "Selección: {target:#06X}");
         assert_eq!(shared.operation_count, fresh.operation_count);
+        assert_eq!(shared.parentheses_count, fresh.parentheses_count);
         assert_eq!(shared.expression.evaluate(&engine).unwrap(), target);
     }
 }
 
 #[test]
-fn target_only_level_preserves_results() {
+fn filtrar_el_ultimo_nivel_conserva_el_resultado() {
     let engine = VennEngine::new(2).unwrap();
     let names = names(2);
 
@@ -63,22 +64,20 @@ fn target_only_level_preserves_results() {
         for limit in 0..=3 {
             let filtered = find_minimum_expression(&engine, &names, target, limit).unwrap();
 
-            // The extra level makes `limit` a complete intermediate level.
             let complete = find_minimum_expression(&engine, &names, target, limit + 1).unwrap();
-
-            let complete_within_limit = complete.filter(|result| result.operation_count <= limit);
+            let within_limit = complete.filter(|result| result.operation_count <= limit);
 
             assert_eq!(
                 filtered.as_ref().map(|result| &result.text),
-                complete_within_limit.as_ref().map(|result| &result.text),
-                "Different result for mask {target}, limit {limit}",
+                within_limit.as_ref().map(|result| &result.text),
+                "Resultados distintos para la máscara {target:#06X} y el límite {limit}",
             );
         }
     }
 }
 
 #[test]
-fn constants_and_sets_need_no_operations() {
+fn las_constantes_y_los_conjuntos_no_necesitan_operaciones() {
     let engine = VennEngine::new(4).unwrap();
     let names = names(4);
 
@@ -101,12 +100,10 @@ fn constants_and_sets_need_no_operations() {
 }
 
 #[test]
-fn finds_symmetric_difference_in_one_operation() {
+fn encuentra_la_diferencia_simetrica_con_una_operacion() {
     let engine = VennEngine::new(4).unwrap();
     let names = names(4);
-    let a = engine.set_mask(0).unwrap();
-    let b = engine.set_mask(1).unwrap();
-    let target = a ^ b;
+    let target = engine.set_mask(0).unwrap() ^ engine.set_mask(1).unwrap();
 
     assert!(
         find_minimum_expression(&engine, &names, target, 0)
@@ -124,7 +121,7 @@ fn finds_symmetric_difference_in_one_operation() {
 }
 
 #[test]
-fn finds_complement_without_parentheses() {
+fn encuentra_el_complemento_sin_parentesis() {
     let engine = VennEngine::new(4).unwrap();
     let names = names(4);
     let target = engine.complement(engine.set_mask(0).unwrap()).unwrap();
@@ -136,10 +133,11 @@ fn finds_complement_without_parentheses() {
     assert_eq!(result.text, "Aᶜ");
     assert_eq!(result.operation_count, 1);
     assert_eq!(result.parentheses_count, 0);
+    assert_eq!(result.expression.evaluate(&engine).unwrap(), target);
 }
 
 #[test]
-fn finds_difference_in_one_operation() {
+fn encuentra_la_diferencia_con_una_operacion() {
     let engine = VennEngine::new(4).unwrap();
     let names = names(4);
 
@@ -157,10 +155,11 @@ fn finds_difference_in_one_operation() {
 
     assert_eq!(result.text, "A \\ B");
     assert_eq!(result.operation_count, 1);
+    assert_eq!(result.expression.evaluate(&engine).unwrap(), target);
 }
 
 #[test]
-fn three_set_intersection_requires_two_operations() {
+fn la_interseccion_de_tres_conjuntos_necesita_dos_operaciones() {
     let engine = VennEngine::new(3).unwrap();
     let names = names(3);
 
@@ -183,35 +182,47 @@ fn three_set_intersection_requires_two_operations() {
 }
 
 #[test]
-fn solves_every_two_set_selection() {
+fn resuelve_todas_las_selecciones_de_dos_conjuntos_con_el_minimo_de_operaciones() {
     let engine = VennEngine::new(2).unwrap();
     let names = names(2);
 
     for target in 0..=engine.universe() {
         let result = find_minimum_expression(&engine, &names, target, 3)
             .unwrap()
-            .expect("Every two-set selection must be representable");
+            .expect("Toda selección de dos conjuntos debe poder representarse");
 
         assert_eq!(result.expression.evaluate(&engine).unwrap(), target);
 
-        if result.operation_count > 0 {
-            assert!(
-                find_minimum_expression(&engine, &names, target, result.operation_count - 1,)
-                    .unwrap()
-                    .is_none()
-            );
+        if result.operation_count == 0 {
+            continue;
         }
+
+        let smaller =
+            find_minimum_expression(&engine, &names, target, result.operation_count - 1).unwrap();
+
+        assert!(
+            smaller.is_none(),
+            "La selección {target:#06X} admite una solución con menos operaciones",
+        );
     }
 }
 
 #[test]
-fn validates_names_and_target() {
+fn rechaza_una_cantidad_incorrecta_de_nombres() {
     let engine = VennEngine::new(2).unwrap();
 
     assert!(matches!(
         find_minimum_expression(&engine, &[], 0, 1),
-        Err(SearchError::InvalidNameCount { .. })
+        Err(SearchError::InvalidNameCount {
+            expected: 2,
+            received: 0,
+        })
     ));
+}
+
+#[test]
+fn rechaza_una_seleccion_fuera_del_universo() {
+    let engine = VennEngine::new(2).unwrap();
 
     assert!(matches!(
         find_minimum_expression(&engine, &names(2), 16, 1),
@@ -220,7 +231,7 @@ fn validates_names_and_target() {
 }
 
 #[test]
-fn results_are_deterministic() {
+fn produce_resultados_deterministas() {
     let engine = VennEngine::new(3).unwrap();
     let names = names(3);
     let target = engine.set_mask(0).unwrap() ^ engine.set_mask(1).unwrap();
@@ -235,4 +246,6 @@ fn results_are_deterministic() {
 
     assert_eq!(first.text, second.text);
     assert_eq!(first.expression, second.expression);
+    assert_eq!(first.operation_count, second.operation_count);
+    assert_eq!(first.parentheses_count, second.parentheses_count);
 }

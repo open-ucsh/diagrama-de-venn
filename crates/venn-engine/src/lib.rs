@@ -3,8 +3,10 @@ pub mod search;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm;
+
 use std::fmt;
 
+/// Cada bit representa una región: cuatro conjuntos generan dieciséis regiones.
 pub type RegionMask = u16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,27 +20,25 @@ pub enum EngineError {
 impl fmt::Display for EngineError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidSetCount(count) => {
-                write!(formatter, "Expected between 1 and 4 sets, received {count}")
-            }
-            Self::InvalidSetIndex { index, set_count } => {
-                write!(formatter, "Set index {index} is outside {set_count} sets")
-            }
+            Self::InvalidSetCount(count) => write!(
+                formatter,
+                "Se admiten entre 1 y 4 conjuntos; se recibieron {count}"
+            ),
+            Self::InvalidSetIndex { index, set_count } => write!(
+                formatter,
+                "El índice {index} no corresponde a ninguno de los {set_count} conjuntos"
+            ),
             Self::InvalidRegion {
                 region,
                 region_count,
-            } => {
-                write!(
-                    formatter,
-                    "Region {region} is outside {region_count} regions"
-                )
-            }
-            Self::MaskOutsideUniverse(mask) => {
-                write!(
-                    formatter,
-                    "Mask {mask} contains regions outside the universe"
-                )
-            }
+            } => write!(
+                formatter,
+                "La región {region} no corresponde a ninguna de las {region_count} regiones"
+            ),
+            Self::MaskOutsideUniverse(mask) => write!(
+                formatter,
+                "La máscara {mask} contiene regiones fuera del universo"
+            ),
         }
     }
 }
@@ -68,6 +68,7 @@ impl VennEngine {
 
         let region_count = 1_usize << set_count;
 
+        // El desplazamiento necesita 32 bits cuando existen dieciséis regiones.
         let universe = ((1_u32 << region_count) - 1) as RegionMask;
 
         Ok(Self {
@@ -148,14 +149,12 @@ impl VennEngine {
         self.validate_mask(left)?;
         self.validate_mask(right)?;
 
-        let result = match operator {
+        Ok(match operator {
             BinaryOperator::Union => left | right,
             BinaryOperator::Intersection => left & right,
             BinaryOperator::Difference => left & (self.universe ^ right),
             BinaryOperator::SymmetricDifference => left ^ right,
-        };
-
-        Ok(result)
+        })
     }
 
     fn validate_mask(&self, mask: RegionMask) -> Result<(), EngineError> {
@@ -169,10 +168,10 @@ impl VennEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{BinaryOperator, EngineError, VennEngine};
 
     #[test]
-    fn supports_one_to_four_sets() {
+    fn admite_entre_uno_y_cuatro_conjuntos() {
         for set_count in 1..=4 {
             let engine = VennEngine::new(set_count).unwrap();
 
@@ -182,16 +181,16 @@ mod tests {
 
         assert_eq!(
             VennEngine::new(0).unwrap_err(),
-            EngineError::InvalidSetCount(0)
+            EngineError::InvalidSetCount(0),
         );
         assert_eq!(
             VennEngine::new(5).unwrap_err(),
-            EngineError::InvalidSetCount(5)
+            EngineError::InvalidSetCount(5),
         );
     }
 
     #[test]
-    fn four_sets_use_all_sixteen_bits() {
+    fn cuatro_conjuntos_utilizan_los_dieciséis_bits() {
         let engine = VennEngine::new(4).unwrap();
 
         assert_eq!(engine.universe(), u16::MAX);
@@ -202,7 +201,7 @@ mod tests {
     }
 
     #[test]
-    fn set_order_matches_typescript() {
+    fn el_orden_de_los_conjuntos_coincide_con_typescript() {
         let engine = VennEngine::new(2).unwrap();
         let a = engine.set_mask(0).unwrap();
         let b = engine.set_mask(1).unwrap();
@@ -212,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn operations_match_region_membership() {
+    fn las_operaciones_respetan_la_pertenencia_a_las_regiones() {
         let engine = VennEngine::new(2).unwrap();
         let a = engine.set_mask(0).unwrap();
         let b = engine.set_mask(1).unwrap();
@@ -227,19 +226,16 @@ mod tests {
         for (operator, expected_regions) in cases {
             let result = engine.apply(operator, a, b).unwrap();
 
-            assert_eq!(engine.regions_from_mask(result).unwrap(), expected_regions);
+            assert_eq!(engine.regions_from_mask(result).unwrap(), expected_regions,);
         }
 
-        assert_eq!(
-            engine
-                .regions_from_mask(engine.complement(a).unwrap())
-                .unwrap(),
-            vec![0, 2]
-        );
+        let complement = engine.complement(a).unwrap();
+
+        assert_eq!(engine.regions_from_mask(complement).unwrap(), vec![0, 2],);
     }
 
     #[test]
-    fn region_conversion_round_trips_every_four_set_mask() {
+    fn la_conversion_de_regiones_conserva_todas_las_mascaras_de_cuatro_conjuntos() {
         let engine = VennEngine::new(4).unwrap();
 
         for mask in 0_u16..=u16::MAX {
@@ -250,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn complement_obeys_boolean_identities() {
+    fn el_complemento_cumple_las_identidades_booleanas() {
         for set_count in 1..=4 {
             let engine = VennEngine::new(set_count).unwrap();
 
@@ -262,47 +258,51 @@ mod tests {
                     engine
                         .apply(BinaryOperator::Union, mask, complement)
                         .unwrap(),
-                    engine.universe()
+                    engine.universe(),
                 );
                 assert_eq!(
                     engine
                         .apply(BinaryOperator::Intersection, mask, complement)
                         .unwrap(),
-                    0
+                    0,
                 );
             }
         }
     }
 
     #[test]
-    fn rejects_invalid_inputs() {
+    fn rechaza_entradas_fuera_del_universo() {
         let engine = VennEngine::new(2).unwrap();
 
         assert!(matches!(
             engine.set_mask(2),
-            Err(EngineError::InvalidSetIndex { .. })
+            Err(EngineError::InvalidSetIndex { .. }),
         ));
         assert!(matches!(
             engine.mask_from_regions(&[4]),
-            Err(EngineError::InvalidRegion { .. })
+            Err(EngineError::InvalidRegion { .. }),
         ));
         assert_eq!(
             engine.complement(16),
-            Err(EngineError::MaskOutsideUniverse(16))
+            Err(EngineError::MaskOutsideUniverse(16)),
         );
         assert_eq!(
             engine.apply(BinaryOperator::Union, 0, 16),
-            Err(EngineError::MaskOutsideUniverse(16))
+            Err(EngineError::MaskOutsideUniverse(16)),
+        );
+        assert_eq!(
+            engine.regions_from_mask(16),
+            Err(EngineError::MaskOutsideUniverse(16)),
         );
     }
 
     #[test]
-    fn duplicate_regions_do_not_change_selection() {
+    fn repetir_regiones_no_modifica_la_seleccion() {
         let engine = VennEngine::new(2).unwrap();
 
         assert_eq!(
             engine.mask_from_regions(&[1, 1, 3]).unwrap(),
-            engine.mask_from_regions(&[1, 3]).unwrap()
+            engine.mask_from_regions(&[1, 3]).unwrap(),
         );
     }
 }

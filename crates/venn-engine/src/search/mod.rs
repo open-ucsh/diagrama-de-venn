@@ -2,6 +2,7 @@ mod candidate;
 mod expansion;
 
 use std::collections::BTreeMap;
+use std::fmt;
 
 use crate::expression::Expression;
 use crate::{EngineError, RegionMask, VennEngine};
@@ -13,6 +14,27 @@ use self::expansion::expand_level;
 pub enum SearchError {
     Engine(EngineError),
     InvalidNameCount { expected: usize, received: usize },
+}
+
+impl fmt::Display for SearchError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Engine(error) => write!(formatter, "{error}"),
+            Self::InvalidNameCount { expected, received } => write!(
+                formatter,
+                "Se esperaban {expected} nombres de conjuntos y se recibieron {received}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for SearchError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Engine(error) => Some(error),
+            Self::InvalidNameCount { .. } => None,
+        }
+    }
 }
 
 impl From<EngineError> for SearchError {
@@ -29,6 +51,7 @@ pub struct SearchResult {
     pub parentheses_count: usize,
 }
 
+/// Conserva niveles completos y resultados para reutilizarlos entre búsquedas.
 pub struct SearchSession {
     engine: VennEngine,
     names: Vec<String>,
@@ -69,14 +92,18 @@ impl SearchSession {
         })
     }
 
+    /// Mayor número de operaciones cuyo nivel se ha construido completamente.
     pub fn completed_operation_count(&self) -> usize {
         self.levels.len() - 1
     }
 
     /// Busca una expresión con el mínimo número de operaciones.
     ///
+    /// Desempata por paréntesis, longitud UTF-16 y orden del texto.
     /// Devuelve `None` si no encuentra una solución dentro del límite.
-    /// Los nombres deben ser aceptados por el parser de la aplicación.
+    ///
+    /// Los nombres deben ser nombres atómicos aceptados por el parser
+    /// de la aplicación.
     pub fn find(
         &mut self,
         target: RegionMask,
@@ -94,29 +121,14 @@ impl SearchSession {
             }
 
             self.results.insert(target, result.clone());
-
             return Ok(Some(result));
         }
 
         while !self.exhausted && self.completed_operation_count() < max_operations {
             let operation_count = self.levels.len();
 
-            // Busca primero la selección solicitada sin incorporar un nivel
-            // parcial a los niveles reutilizables de la sesión.
-            let mut target_candidates = BTreeMap::new();
-
-            expand_level(
-                &self.engine,
-                &self.names,
-                &self.levels,
-                &mut target_candidates,
-                operation_count,
-                Some(target),
-            )?;
-
-            if let Some(result) = best_for_mask(&target_candidates, target) {
+            if let Some(result) = self.search_target_level(target, operation_count)? {
                 self.results.insert(target, result.clone());
-
                 return Ok(Some(result));
             }
 
@@ -124,36 +136,61 @@ impl SearchSession {
                 return Ok(None);
             }
 
-            // Completa el nivel para reutilizar sus subexpresiones
-            // al buscar soluciones con más operaciones.
-            expand_level(
-                &self.engine,
-                &self.names,
-                &self.levels,
-                &mut self.candidates,
-                operation_count,
-                None,
-            )?;
-
-            let level = self
-                .candidates
-                .values()
-                .filter(|candidate| candidate.operations == operation_count)
-                .cloned()
-                .collect::<Vec<_>>();
-
-            if level.is_empty() {
-                self.exhausted = true;
-                return Ok(None);
-            }
-
-            self.levels.push(level);
+            self.complete_next_level(operation_count)?;
         }
 
         Ok(None)
     }
+
+    fn search_target_level(
+        &self,
+        target: RegionMask,
+        operation_count: usize,
+    ) -> Result<Option<SearchResult>, SearchError> {
+        // Un nivel filtrado por objetivo no sirve como nivel completo reutilizable.
+        let mut candidates = BTreeMap::new();
+
+        expand_level(
+            &self.engine,
+            &self.names,
+            &self.levels,
+            &mut candidates,
+            operation_count,
+            Some(target),
+        )?;
+
+        Ok(best_for_mask(&candidates, target))
+    }
+
+    fn complete_next_level(&mut self, operation_count: usize) -> Result<(), SearchError> {
+        expand_level(
+            &self.engine,
+            &self.names,
+            &self.levels,
+            &mut self.candidates,
+            operation_count,
+            None,
+        )?;
+
+        let level = self
+            .candidates
+            .values()
+            .filter(|candidate| candidate.operations == operation_count)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        if level.is_empty() {
+            self.exhausted = true;
+            return Ok(());
+        }
+
+        self.levels.push(level);
+
+        Ok(())
+    }
 }
 
+/// Realiza una búsqueda independiente, sin reutilizar sesiones anteriores.
 pub fn find_minimum_expression(
     engine: &VennEngine,
     names: &[String],
