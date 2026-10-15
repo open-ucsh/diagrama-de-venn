@@ -27,10 +27,10 @@ async function renameSet(page: Page, currentName: string, nextName: string) {
 }
 
 async function openExportMenu(page: Page) {
-  const summary = page.locator("summary").filter({
-    hasText: /^Exportar$/,
-  });
+  const summary = page.locator('summary[aria-controls="export-menu"]');
   const details = page.locator("details").filter({ has: summary });
+
+  await expect(summary).toBeVisible();
 
   if ((await details.getAttribute("open")) === null) {
     await summary.click();
@@ -81,8 +81,9 @@ test("completa el flujo del editor en el build de producción", async ({
   await test.step("abre la aplicación y selecciona una región con un clic real", async () => {
     await page.goto("/");
 
-    const canvas = page.getByRole("application", {
-      name: "Diagrama de Venn interactivo",
+    const canvas = page.getByRole("img", {
+      name: "Diagrama de Venn",
+      exact: true,
     });
 
     await expect(canvas).toBeVisible();

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const FORMULA_HISTORY_STORAGE_KEY = "venn-formula-history";
 const MAX_FORMULA_HISTORY = 10;
@@ -13,24 +13,32 @@ function loadFormulaHistory(): string[] {
 
     if (!Array.isArray(parsed)) return [];
 
-    return parsed
+    const formulas = parsed
       .filter((value): value is string => typeof value === "string")
-      .slice(0, MAX_FORMULA_HISTORY);
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+
+    return [...new Set(formulas)].slice(0, MAX_FORMULA_HISTORY);
   } catch {
+    // Un historial ilegible no debe impedir que el editor se abra.
     return [];
   }
 }
 
-function persistFormulaHistory(formulas: string[]) {
+function persistFormulaHistory(formulas: string[]): void {
   try {
     window.localStorage.setItem(FORMULA_HISTORY_STORAGE_KEY, JSON.stringify(formulas));
   } catch {
-    // El historial seguirá disponible durante esta sesión.
+    // Si el almacenamiento falla, el historial sigue disponible en memoria.
   }
 }
 
 export function useFormulaHistory() {
   const [formulaHistory, setFormulaHistory] = useState<string[]>(loadFormulaHistory);
+
+  useEffect(() => {
+    persistFormulaHistory(formulaHistory);
+  }, [formulaHistory]);
 
   const saveFormulaToHistory = useCallback((value: string) => {
     const normalized = value.trim();
@@ -38,29 +46,30 @@ export function useFormulaHistory() {
     if (!normalized) return;
 
     setFormulaHistory((currentHistory) => {
-      const nextHistory = [
-        normalized,
-        ...currentHistory.filter((item) => item !== normalized),
-      ].slice(0, MAX_FORMULA_HISTORY);
+      if (currentHistory[0] === normalized) {
+        return currentHistory;
+      }
 
-      persistFormulaHistory(nextHistory);
-      return nextHistory;
+      return [normalized, ...currentHistory.filter((formula) => formula !== normalized)].slice(
+        0,
+        MAX_FORMULA_HISTORY,
+      );
     });
   }, []);
 
-  function clearFormulaHistory() {
-    setFormulaHistory([]);
-    persistFormulaHistory([]);
-  }
+  const clearFormulaHistory = useCallback(() => {
+    setFormulaHistory((currentHistory) => (currentHistory.length === 0 ? currentHistory : []));
+  }, []);
 
-  function deleteFormulaFromHistory(formulaToDelete: string) {
+  const deleteFormulaFromHistory = useCallback((formulaToDelete: string) => {
     setFormulaHistory((currentHistory) => {
-      const nextHistory = currentHistory.filter((item) => item !== formulaToDelete);
+      if (!currentHistory.includes(formulaToDelete)) {
+        return currentHistory;
+      }
 
-      persistFormulaHistory(nextHistory);
-      return nextHistory;
+      return currentHistory.filter((formula) => formula !== formulaToDelete);
     });
-  }
+  }, []);
 
   return {
     formulaHistory,

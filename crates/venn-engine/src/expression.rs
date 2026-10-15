@@ -50,45 +50,37 @@ impl Expression {
         }
     }
 
-    /// Names must follow the same order as the engine's sets.
-    /// Returns None if a referenced set has no name.
+    /// Representa la expresión respetando la precedencia de los operadores.
+    ///
+    /// Los nombres deben seguir el orden de los conjuntos del motor.
+    /// Devuelve `None` si falta el nombre de un conjunto referenciado.
     pub fn format(&self, names: &[String]) -> Option<String> {
+        let precedence = self.precedence();
+
         match self {
             Self::Empty => Some("∅".to_owned()),
             Self::Universe => Some("U".to_owned()),
             Self::Set(index) => names.get(*index).cloned(),
             Self::Complement(expression) => {
-                let text = expression.format(names)?;
+                let operand =
+                    expression.format_operand(names, expression.precedence() < precedence)?;
 
-                if expression.precedence() < self.precedence() {
-                    Some(format!("({text})ᶜ"))
-                } else {
-                    Some(format!("{text}ᶜ"))
-                }
+                Some(format!("{operand}ᶜ"))
             }
             Self::Binary {
                 operator,
                 left,
                 right,
             } => {
-                let left_text = left.format(names)?;
-                let right_text = right.format(names)?;
+                let left_text = left.format_operand(names, left.precedence() < precedence)?;
 
-                let left_text = if left.precedence() < self.precedence() {
-                    format!("({left_text})")
-                } else {
-                    left_text
-                };
-
-                let right_needs_parentheses = right.precedence() < self.precedence()
+                // La diferencia no es asociativa: el operando derecho
+                // necesita paréntesis también cuando tiene igual precedencia.
+                let wrap_right = right.precedence() < precedence
                     || (*operator == BinaryOperator::Difference
-                        && right.precedence() == self.precedence());
+                        && right.precedence() == precedence);
 
-                let right_text = if right_needs_parentheses {
-                    format!("({right_text})")
-                } else {
-                    right_text
-                };
+                let right_text = right.format_operand(names, wrap_right)?;
 
                 Some(format!("{left_text} {} {right_text}", symbol(*operator)))
             }
@@ -107,6 +99,12 @@ impl Expression {
             },
         }
     }
+
+    fn format_operand(&self, names: &[String], wrapped: bool) -> Option<String> {
+        let text = self.format(names)?;
+
+        Some(if wrapped { format!("({text})") } else { text })
+    }
 }
 
 fn symbol(operator: BinaryOperator) -> &'static str {
@@ -120,7 +118,8 @@ fn symbol(operator: BinaryOperator) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::Expression;
+    use crate::{BinaryOperator, EngineError, VennEngine};
 
     fn names() -> Vec<String> {
         ["A", "B", "C", "D"]
@@ -129,28 +128,24 @@ mod tests {
             .collect()
     }
 
-    fn binary(operator: BinaryOperator, left: Expression, right: Expression) -> Expression {
-        Expression::binary(operator, left, right)
-    }
-
     #[test]
-    fn symmetric_difference_matches_expanded_expression() {
+    fn la_diferencia_simetrica_equivale_a_su_desarrollo() {
         let engine = VennEngine::new(2).unwrap();
 
-        let short = binary(
+        let short = Expression::binary(
             BinaryOperator::SymmetricDifference,
             Expression::Set(0),
             Expression::Set(1),
         );
 
-        let expanded = binary(
+        let expanded = Expression::binary(
             BinaryOperator::Union,
-            binary(
+            Expression::binary(
                 BinaryOperator::Intersection,
                 Expression::Set(0),
                 Expression::complement(Expression::Set(1)),
             ),
-            binary(
+            Expression::binary(
                 BinaryOperator::Intersection,
                 Expression::complement(Expression::Set(0)),
                 Expression::Set(1),
@@ -159,7 +154,7 @@ mod tests {
 
         assert_eq!(
             short.evaluate(&engine).unwrap(),
-            expanded.evaluate(&engine).unwrap()
+            expanded.evaluate(&engine).unwrap(),
         );
         assert_eq!(short.operation_count(), 1);
         assert_eq!(expanded.operation_count(), 5);
@@ -167,8 +162,8 @@ mod tests {
     }
 
     #[test]
-    fn complement_wraps_binary_expressions() {
-        let expression = Expression::complement(binary(
+    fn el_complemento_envuelve_las_expresiones_binarias() {
+        let expression = Expression::complement(Expression::binary(
             BinaryOperator::Union,
             Expression::Set(0),
             Expression::Set(1),
@@ -179,11 +174,11 @@ mod tests {
     }
 
     #[test]
-    fn precedence_avoids_unnecessary_parentheses() {
-        let expression = binary(
+    fn evita_parentesis_cuando_la_precedencia_es_suficiente() {
+        let expression = Expression::binary(
             BinaryOperator::Union,
             Expression::Set(0),
-            binary(
+            Expression::binary(
                 BinaryOperator::Intersection,
                 Expression::Set(1),
                 Expression::Set(2),
@@ -194,11 +189,11 @@ mod tests {
     }
 
     #[test]
-    fn lower_precedence_requires_parentheses() {
-        let expression = binary(
+    fn agrega_parentesis_cuando_el_operando_tiene_menor_precedencia() {
+        let expression = Expression::binary(
             BinaryOperator::Intersection,
             Expression::Set(0),
-            binary(
+            Expression::binary(
                 BinaryOperator::Union,
                 Expression::Set(1),
                 Expression::Set(2),
@@ -209,22 +204,22 @@ mod tests {
     }
 
     #[test]
-    fn right_nested_difference_preserves_meaning() {
+    fn los_parentesis_de_la_diferencia_conservan_su_significado() {
         let engine = VennEngine::new(3).unwrap();
 
-        let right_nested = binary(
+        let right_nested = Expression::binary(
             BinaryOperator::Difference,
             Expression::Set(0),
-            binary(
+            Expression::binary(
                 BinaryOperator::Difference,
                 Expression::Set(1),
                 Expression::Set(2),
             ),
         );
 
-        let left_nested = binary(
+        let left_nested = Expression::binary(
             BinaryOperator::Difference,
-            binary(
+            Expression::binary(
                 BinaryOperator::Difference,
                 Expression::Set(0),
                 Expression::Set(1),
@@ -232,16 +227,16 @@ mod tests {
             Expression::Set(2),
         );
 
-        assert_eq!(right_nested.format(&names()).unwrap(), "A \\ (B \\ C)");
-        assert_eq!(left_nested.format(&names()).unwrap(), "A \\ B \\ C");
+        assert_eq!(right_nested.format(&names()).unwrap(), "A \\ (B \\ C)",);
+        assert_eq!(left_nested.format(&names()).unwrap(), "A \\ B \\ C",);
         assert_ne!(
             right_nested.evaluate(&engine).unwrap(),
-            left_nested.evaluate(&engine).unwrap()
+            left_nested.evaluate(&engine).unwrap(),
         );
     }
 
     #[test]
-    fn constants_and_set_names_are_preserved() {
+    fn conserva_las_constantes_y_los_nombres_personalizados() {
         assert_eq!(Expression::Empty.format(&names()).unwrap(), "∅");
         assert_eq!(Expression::Universe.format(&names()).unwrap(), "U");
 
@@ -249,18 +244,32 @@ mod tests {
 
         assert_eq!(
             Expression::Set(0).format(&custom_names).unwrap(),
-            "Conjunto α"
+            "Conjunto α",
         );
         assert_eq!(Expression::Set(1).format(&custom_names), None);
     }
 
     #[test]
-    fn invalid_set_reference_returns_an_error() {
+    fn propaga_la_ausencia_de_un_nombre_en_expresiones_compuestas() {
+        let expression = Expression::complement(Expression::binary(
+            BinaryOperator::Union,
+            Expression::Set(0),
+            Expression::Set(1),
+        ));
+
+        assert_eq!(expression.format(&["A".to_owned()]), None);
+    }
+
+    #[test]
+    fn rechaza_referencias_a_conjuntos_inexistentes() {
         let engine = VennEngine::new(2).unwrap();
 
         assert!(matches!(
             Expression::Set(2).evaluate(&engine),
-            Err(EngineError::InvalidSetIndex { .. })
+            Err(EngineError::InvalidSetIndex {
+                index: 2,
+                set_count: 2,
+            }),
         ));
     }
 }
