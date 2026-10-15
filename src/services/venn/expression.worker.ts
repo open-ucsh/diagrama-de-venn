@@ -13,15 +13,20 @@ interface WorkerScope {
 
 const scope = self as unknown as WorkerScope;
 
-const initialized = init({
-  module_or_path: new URL("../../../crates/venn-engine/pkg/venn_engine_bg.wasm", import.meta.url),
-});
-
+let initialization: Promise<void> | null = null;
 let session: WasmExpressionSession | null = null;
 let sessionKey: string | null = null;
 
-// Serialize initialization and requests so they share one Rust session.
+// Serializa las solicitudes porque comparten una sesión mutable de Rust.
 let queue: Promise<void> = Promise.resolve();
+
+function initialize(): Promise<void> {
+  initialization ??= init({
+    module_or_path: new URL("../../../crates/venn-engine/pkg/venn_engine_bg.wasm", import.meta.url),
+  }).then(() => undefined);
+
+  return initialization;
+}
 
 function getSession(names: string[]): WasmExpressionSession {
   const key = JSON.stringify(names);
@@ -34,42 +39,40 @@ function getSession(names: string[]): WasmExpressionSession {
   session = null;
   sessionKey = null;
 
-  const nextSession = new WasmExpressionSession(key);
-
-  session = nextSession;
+  session = new WasmExpressionSession(key);
   sessionKey = key;
 
-  return nextSession;
+  return session;
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+async function processRequest(request: ExpressionWorkerRequest): Promise<ExpressionWorkerResponse> {
+  try {
+    await initialize();
+
+    const currentSession = getSession(request.names);
+    const json = currentSession.findMinimum(request.mask, request.maxOperations);
+
+    const result = JSON.parse(json) as MinimumExpressionResult | null;
+
+    return {
+      id: request.id,
+      success: true,
+      result,
+    };
+  } catch (error) {
+    return {
+      id: request.id,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 scope.onmessage = (event) => {
   const request = event.data;
 
   queue = queue.then(async () => {
-    try {
-      await initialized;
-
-      const currentSession = getSession(request.names);
-
-      const json = currentSession.findMinimum(request.mask, request.maxOperations);
-
-      const result = JSON.parse(json) as MinimumExpressionResult | null;
-
-      scope.postMessage({
-        id: request.id,
-        success: true,
-        result,
-      });
-    } catch (error) {
-      scope.postMessage({
-        id: request.id,
-        success: false,
-        error: getErrorMessage(error),
-      });
-    }
+    const response = await processRequest(request);
+    scope.postMessage(response);
   });
 };

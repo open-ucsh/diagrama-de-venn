@@ -1,4 +1,4 @@
-import { act, StrictMode } from "react";
+import { act, StrictMode, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -40,7 +40,16 @@ function mountHistory() {
   document.body.append(container);
 
   function Harness() {
-    current = useFormulaHistory();
+    const history = useFormulaHistory();
+
+    useLayoutEffect(() => {
+      current = history;
+
+      return () => {
+        current = null;
+      };
+    }, [history]);
+
     return null;
   }
 

@@ -14,10 +14,11 @@ interface PendingRequest {
 export class ExpressionEngine {
   private readonly worker: Worker;
   private readonly names: string[];
+  private readonly universeMask: number;
   private readonly pending = new Map<number, PendingRequest>();
 
   private nextRequestId = 0;
-  private disposed = false;
+  private closedError: Error | null = null;
 
   constructor(names: string[]) {
     if (names.length < 1 || names.length > 4) {
@@ -25,6 +26,7 @@ export class ExpressionEngine {
     }
 
     this.names = [...names];
+    this.universeMask = 2 ** (2 ** names.length) - 1;
 
     this.worker = new Worker(new URL("./expression.worker.ts", import.meta.url), {
       type: "module",
@@ -36,14 +38,11 @@ export class ExpressionEngine {
   }
 
   findMinimum(mask: number, maxOperations: number): Promise<MinimumExpressionResult | null> {
-    if (this.disposed) {
-      return Promise.reject(new Error("El motor está cerrado."));
+    if (this.closedError) {
+      return Promise.reject(this.closedError);
     }
 
-    const regionCount = 2 ** this.names.length;
-    const universeMask = 2 ** regionCount - 1;
-
-    if (!Number.isInteger(mask) || mask < 0 || mask > universeMask) {
+    if (!Number.isInteger(mask) || mask < 0 || mask > this.universeMask) {
       return Promise.reject(new Error("La selección de regiones es inválida."));
     }
 
@@ -52,7 +51,6 @@ export class ExpressionEngine {
     }
 
     const id = this.nextRequestId++;
-
     const request: ExpressionWorkerRequest = {
       id,
       names: this.names,
@@ -67,65 +65,54 @@ export class ExpressionEngine {
         this.worker.postMessage(request);
       } catch (error) {
         this.pending.delete(id);
-
         reject(error instanceof Error ? error : new Error(String(error)));
       }
     });
   }
 
   dispose(): void {
-    if (this.disposed) {
-      return;
-    }
-
-    this.disposed = true;
-
-    this.worker.removeEventListener("message", this.handleMessage);
-    this.worker.removeEventListener("error", this.handleError);
-    this.worker.removeEventListener("messageerror", this.handleMessageError);
-
-    this.worker.terminate();
-
-    for (const request of this.pending.values()) {
-      request.reject(new Error("La búsqueda fue cancelada."));
-    }
-
-    this.pending.clear();
+    this.close(new Error("La búsqueda fue cancelada."));
   }
 
   private readonly handleMessage = (event: MessageEvent<ExpressionWorkerResponse>): void => {
     const response = event.data;
     const request = this.pending.get(response.id);
 
-    if (!request) {
-      return;
-    }
+    if (!request) return;
 
     this.pending.delete(response.id);
 
     if (response.success) {
       request.resolve(response.result);
-    } else {
-      request.reject(new Error(response.error));
+      return;
     }
+
+    request.reject(new Error(response.error));
   };
 
   private readonly handleError = (event: ErrorEvent): void => {
-    const message = event.message || "No se pudo ejecutar el motor Rust.";
-
-    this.fail(new Error(message));
+    this.close(new Error(event.message || "No se pudo ejecutar el motor Rust."));
   };
 
   private readonly handleMessageError = (): void => {
-    this.fail(new Error("No se pudo leer la respuesta del motor Rust."));
+    this.close(new Error("No se pudo leer la respuesta del motor Rust."));
   };
 
-  private fail(error: Error): void {
+  private close(error: Error): void {
+    if (this.closedError) return;
+
+    // Conserva la causa del cierre para las solicitudes posteriores.
+    this.closedError = error;
+
+    this.worker.removeEventListener("message", this.handleMessage);
+    this.worker.removeEventListener("error", this.handleError);
+    this.worker.removeEventListener("messageerror", this.handleMessageError);
+    this.worker.terminate();
+
     for (const request of this.pending.values()) {
       request.reject(error);
     }
 
     this.pending.clear();
-    this.dispose();
   }
 }
