@@ -3,17 +3,14 @@ import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { parseVennExpression, VennExpressionError } from "@/domain/venn/expressions";
 import { getSelectedMask } from "@/domain/venn/expressions/expression-masks";
 import { ExpressionEngine } from "@/services/venn/expression-engine";
+import { findMinimumExpression } from "@/services/venn/find-minimum-expression";
+import { useVennExpression, type VennExpressionState } from "@/state/venn-expression";
 import { useVennStore } from "@/state/venn-store";
-import { useVennExpression } from "@/state/venn-expression";
 
 import { useFormulaHistory } from "./use-formula-history";
 
-interface SearchState {
-  key: string;
-  status: "idle" | "searching" | "ready" | "error";
-  text: string;
-  error: string | null;
-}
+const SEARCH_DELAY_MS = 200;
+const HISTORY_DELAY_MS = 700;
 
 export function useFormulaEditor() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -29,7 +26,7 @@ export function useFormulaEditor() {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  const [search, setSearch] = useState<SearchState>({
+  const [search, setSearch] = useState<VennExpressionState>({
     key: "",
     status: "idle",
     text: "",
@@ -51,6 +48,7 @@ export function useFormulaEditor() {
   const latestSearchKeyRef = useRef(searchKey);
 
   latestSearchKeyRef.current = searchKey;
+
   useEffect(() => {
     useVennExpression.setState(search);
   }, [search]);
@@ -59,9 +57,7 @@ export function useFormulaEditor() {
     engineRef.current?.dispose();
     engineRef.current = null;
 
-    if (diagram.sets.length === 0) {
-      return;
-    }
+    if (diagram.sets.length === 0) return;
 
     try {
       engineRef.current = new ExpressionEngine(diagram.sets.map((set) => set.name));
@@ -77,14 +73,13 @@ export function useFormulaEditor() {
       engineRef.current?.dispose();
       engineRef.current = null;
     };
-    // Positions, colors and elements do not change the expression engine.
+
+    // La geometría, los colores y los elementos no cambian el motor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setsKey]);
 
   useEffect(() => {
-    if (isEditing) {
-      return;
-    }
+    if (isEditing) return;
 
     let cancelled = false;
 
@@ -92,101 +87,66 @@ export function useFormulaEditor() {
       return !cancelled && !isEditingRef.current && latestSearchKeyRef.current === searchKey;
     }
 
-    if (!hasSelection) {
-      setFormula("");
-      setError(null);
-      setSearch({
-        key: searchKey,
-        status: "idle",
-        text: "",
-        error: null,
-      });
-
-      return;
-    }
-
     setFormula("");
     setError(null);
     setSearch({
       key: searchKey,
-      status: "searching",
+      status: hasSelection ? "searching" : "idle",
       text: "",
       error: null,
     });
 
-    const timeoutId = window.setTimeout(() => {
-      async function calculate() {
-        const engine = engineRef.current;
+    if (!hasSelection) return;
 
-        if (!engine) {
-          throw new Error("El motor de fórmulas no está disponible.");
-        }
+    async function calculate() {
+      if (!isCurrent()) return;
 
-        // Continue beyond seven operations when required.
-        // Each response gives the UI a chance to discard an outdated request.
-        for (let limit = 3; limit <= 127; limit += 1) {
-          if (!isCurrent()) {
-            return;
-          }
+      const engine = engineRef.current;
 
-          const result = await engine.findMinimum(selectedMask, limit);
-
-          if (!isCurrent()) {
-            return;
-          }
-
-          if (!result) {
-            continue;
-          }
-
-          // Verify that the generated text is accepted by the existing parser
-          // and reproduces exactly the requested selection.
-          const parsed = parseVennExpression(diagram, result.text);
-          const parsedMask = getSelectedMask(diagram, parsed.regionIds);
-
-          if (parsedMask !== selectedMask) {
-            throw new Error("La fórmula calculada no coincide con las regiones seleccionadas.");
-          }
-
-          setFormula(result.text);
-          setError(null);
-          setSearch({
-            key: searchKey,
-            status: "ready",
-            text: result.text,
-            error: null,
-          });
-
-          return;
-        }
-
-        throw new Error("No fue posible encontrar una fórmula mínima.");
+      if (!engine) {
+        throw new Error("El motor de fórmulas no está disponible.");
       }
 
-      void calculate().catch((caughtError: unknown) => {
-        if (!isCurrent()) {
-          return;
-        }
+      const result = await findMinimumExpression({
+        engine,
+        diagram,
+        selectedMask,
+        isCurrent,
+      });
 
-        const message =
-          caughtError instanceof Error
-            ? caughtError.message
-            : "No fue posible calcular la fórmula.";
+      if (!result || !isCurrent()) return;
+
+      setFormula(result.text);
+      setSearch({
+        key: searchKey,
+        status: "ready",
+        text: result.text,
+        error: null,
+      });
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void calculate().catch((caughtError: unknown) => {
+        if (!isCurrent()) return;
 
         setSearch({
           key: searchKey,
           status: "error",
           text: "",
-          error: message,
+          error:
+            caughtError instanceof Error
+              ? caughtError.message
+              : "No fue posible calcular la fórmula.",
         });
       });
-    }, 200);
+    }, SEARCH_DELAY_MS);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-    // Only names, order and selected regions affect the calculation.
+
+    // La búsqueda depende de los conjuntos y la selección, no de su geometría.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchKey, isEditing]);
 
@@ -199,7 +159,7 @@ export function useFormulaEditor() {
       if (!isEditingRef.current && latestSearchKeyRef.current === search.key) {
         saveFormulaToHistory(search.text);
       }
-    }, 700);
+    }, HISTORY_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
   }, [isEditing, search, searchKey, saveFormulaToHistory]);
@@ -239,15 +199,13 @@ export function useFormulaEditor() {
   }
 
   function recordFormula(value: string) {
-    if (!value.trim()) {
-      return;
-    }
+    if (!value.trim()) return;
 
     try {
       parseVennExpression(diagram, value);
       saveFormulaToHistory(value);
     } catch {
-      // Solo se guardan fórmulas válidas.
+      // Una expresión incompleta no debe incorporarse al historial.
     }
   }
 
@@ -292,9 +250,7 @@ export function useFormulaEditor() {
   }
 
   function applyHistoryFormula(historicalFormula: string) {
-    if (!isHistoryFormulaAvailable(historicalFormula)) {
-      return;
-    }
+    if (!isHistoryFormulaAvailable(historicalFormula)) return;
 
     beginEditing();
     applyFormula(historicalFormula);
