@@ -1,6 +1,11 @@
-import type { VennDiagram } from "../models";
-import { getVennRegions } from "../regions";
-import { getSetMask, getUniverseMask } from "./expression-masks";
+import {
+  getRegionIdsFromMask,
+  getSetMask,
+  getUniverseMask,
+} from "@/domain/venn/expressions/expression-masks";
+import type { VennDiagram } from "@/domain/venn/models";
+
+export { getRegionIdsFromMask } from "@/domain/venn/expressions/expression-masks";
 
 type Operator = "union" | "intersection" | "difference" | "symmetric-difference" | "complement";
 
@@ -16,33 +21,48 @@ type Token =
       position: number;
     }
   | {
-      type: "left-parenthesis";
-      position: number;
-    }
-  | {
-      type: "right-parenthesis";
-      position: number;
-    }
-  | {
-      type: "empty-set";
-      position: number;
-    }
-  | {
-      type: "complement-postfix";
-      position: number;
-    }
-  | {
-      type: "end";
+      type: "left-parenthesis" | "right-parenthesis" | "empty-set" | "complement-postfix" | "end";
       position: number;
     };
+
+interface SetIdentifier {
+  name: string;
+  normalizedName: string;
+}
 
 export interface ParsedVennExpression {
   mask: number;
   regionIds: string[];
 }
 
+const OPERATORS: ReadonlyMap<string, Operator> = new Map([
+  ["∪", "union"],
+  ["|", "union"],
+  ["∩", "intersection"],
+  ["&", "intersection"],
+  ["\\", "difference"],
+  ["-", "difference"],
+  ["△", "symmetric-difference"],
+  ["Δ", "symmetric-difference"],
+  ["^", "symmetric-difference"],
+  ["!", "complement"],
+]);
+
+const SYMBOL_TOKENS: ReadonlyMap<string, Token["type"]> = new Map([
+  ["(", "left-parenthesis"],
+  [")", "right-parenthesis"],
+  ["∅", "empty-set"],
+  ["'", "complement-postfix"],
+  ["′", "complement-postfix"],
+  ["ᶜ", "complement-postfix"],
+]);
+
+const IDENTIFIER_CHARACTER = /[\p{L}\p{N}_]/u;
+const SET_NAME_PATTERN = /^[\p{L}\p{N}_]+(?:\s+[\p{L}\p{N}_]+)*$/u;
+const WHITESPACE = /\s/u;
+
 export class VennExpressionError extends Error {
-  position: number;
+  readonly position: number;
 
   constructor(message: string, position: number) {
     super(message);
@@ -52,89 +72,87 @@ export class VennExpressionError extends Error {
   }
 }
 
+function normalizeIdentifier(value: string): string {
+  return value.toLowerCase();
+}
+
 function isIdentifierCharacter(character: string): boolean {
-  return character !== "ᶜ" && character !== "Δ" && /[\p{L}\p{N}_]/u.test(character);
+  return character !== "ᶜ" && character !== "Δ" && IDENTIFIER_CHARACTER.test(character);
+}
+
+function getSetIdentifiers(diagram: VennDiagram): SetIdentifier[] {
+  return (
+    diagram.sets
+      .map((set) => set.name)
+      .filter(
+        (name) =>
+          name.length > 0 &&
+          name.trim() === name &&
+          SET_NAME_PATTERN.test(name) &&
+          !name.includes("ᶜ") &&
+          !name.includes("Δ") &&
+          normalizeIdentifier(name) !== "u",
+      )
+      .map((name) => ({
+        name,
+        normalizedName: normalizeIdentifier(name),
+      }))
+      // Evita interpretar "Numeros reales" como el conjunto "Numeros".
+      .sort((first, second) => second.name.length - first.name.length)
+  );
+}
+
+function findSetIdentifier(
+  source: string,
+  position: number,
+  identifiers: readonly SetIdentifier[],
+): SetIdentifier | undefined {
+  return identifiers.find(({ name, normalizedName }) => {
+    const candidate = source.slice(position, position + name.length);
+
+    if (normalizeIdentifier(candidate) !== normalizedName) {
+      return false;
+    }
+
+    const nextCharacter = source[position + name.length] ?? "";
+
+    return !isIdentifierCharacter(nextCharacter);
+  });
 }
 
 function tokenize(source: string, diagram: VennDiagram): Token[] {
   const tokens: Token[] = [];
+  const identifiers = getSetIdentifiers(diagram);
   let position = 0;
-
-  // Match longer names first: "Numeros reales" before "Numeros".
-  // Names containing operator symbols require a quoted-name syntax,
-  // which is not introduced in this change.
-  const setNames = diagram.sets
-    .map((set) => set.name)
-    .filter(
-      (name) =>
-        name.length > 0 &&
-        name.trim() === name &&
-        /^[\p{L}\p{N}_]+(?:\s+[\p{L}\p{N}_]+)*$/u.test(name) &&
-        !name.includes("ᶜ") &&
-        !name.includes("Δ") &&
-        name.toUpperCase() !== "U",
-    )
-    .sort((first, second) => second.length - first.length);
 
   while (position < source.length) {
     const character = source[position];
 
-    if (!character) {
+    if (character === undefined) {
       break;
     }
 
-    if (/\s/u.test(character)) {
+    if (WHITESPACE.test(character)) {
       position += 1;
       continue;
     }
 
-    if (character === "(" || character === ")") {
-      tokens.push({
-        type: character === "(" ? "left-parenthesis" : "right-parenthesis",
-        position,
-      });
+    const symbolType = SYMBOL_TOKENS.get(character);
+
+    if (
+      symbolType === "left-parenthesis" ||
+      symbolType === "right-parenthesis" ||
+      symbolType === "empty-set" ||
+      symbolType === "complement-postfix"
+    ) {
+      tokens.push({ type: symbolType, position });
       position += 1;
       continue;
     }
 
-    if (character === "∅") {
-      tokens.push({ type: "empty-set", position });
-      position += 1;
-      continue;
-    }
+    const operator = OPERATORS.get(character);
 
-    if (character === "'" || character === "′" || character === "ᶜ") {
-      tokens.push({ type: "complement-postfix", position });
-      position += 1;
-      continue;
-    }
-
-    let operator: Operator | null = null;
-
-    switch (character) {
-      case "∪":
-      case "|":
-        operator = "union";
-        break;
-      case "∩":
-      case "&":
-        operator = "intersection";
-        break;
-      case "\\":
-      case "-":
-        operator = "difference";
-        break;
-      case "△":
-      case "Δ":
-      case "^":
-        operator = "symmetric-difference";
-        break;
-      case "!":
-        operator = "complement";
-        break;
-    }
-
-    if (operator) {
+    if (operator !== undefined) {
       tokens.push({
         type: "operator",
         value: operator,
@@ -144,44 +162,33 @@ function tokenize(source: string, diagram: VennDiagram): Token[] {
       continue;
     }
 
-    if (isIdentifierCharacter(character)) {
-      const knownName = setNames.find((name) => {
-        const candidate = source.slice(position, position + name.length);
+    if (!isIdentifierCharacter(character)) {
+      throw new VennExpressionError(`El símbolo “${character}” no es válido.`, position);
+    }
 
-        if (candidate.toLocaleLowerCase() !== name.toLocaleLowerCase()) {
-          return false;
-        }
+    const knownIdentifier = findSetIdentifier(source, position, identifiers);
 
-        const nextCharacter = source[position + name.length] ?? "";
-
-        return !isIdentifierCharacter(nextCharacter);
-      });
-
-      if (knownName) {
-        tokens.push({
-          type: "identifier",
-          value: knownName,
-          position,
-        });
-        position += knownName.length;
-        continue;
-      }
-
-      const start = position;
-
-      while (position < source.length && isIdentifierCharacter(source[position] ?? "")) {
-        position += 1;
-      }
-
+    if (knownIdentifier) {
       tokens.push({
         type: "identifier",
-        value: source.slice(start, position),
-        position: start,
+        value: knownIdentifier.name,
+        position,
       });
+      position += knownIdentifier.name.length;
       continue;
     }
 
-    throw new VennExpressionError(`El símbolo “${character}” no es válido.`, position);
+    const start = position;
+
+    while (position < source.length && isIdentifierCharacter(source[position] ?? "")) {
+      position += 1;
+    }
+
+    tokens.push({
+      type: "identifier",
+      value: source.slice(start, position),
+      position: start,
+    });
   }
 
   tokens.push({
@@ -193,21 +200,27 @@ function tokenize(source: string, diagram: VennDiagram): Token[] {
 }
 
 class ExpressionParser {
-  private readonly diagram: VennDiagram;
-
   private readonly tokens: Token[];
-
+  private readonly endToken: Token;
   private readonly universeMask: number;
-
+  private readonly setMasks: Map<string, number>;
   private index = 0;
 
   constructor(diagram: VennDiagram, source: string) {
-    this.diagram = diagram;
+    const setCount = diagram.sets.length;
+
     this.tokens = tokenize(source, diagram);
-    this.universeMask = getUniverseMask(diagram.sets.length);
+    this.endToken = { type: "end", position: source.length };
+    this.universeMask = getUniverseMask(setCount);
+    this.setMasks = new Map(
+      diagram.sets.map((set, index) => [
+        normalizeIdentifier(set.name),
+        getSetMask(index, setCount),
+      ]),
+    );
   }
 
-  parse() {
+  parse(): number {
     const mask = this.parseUnion();
     const token = this.current();
 
@@ -222,32 +235,31 @@ class ExpressionParser {
   }
 
   private current(): Token {
-    return (
-      this.tokens[this.index] ?? {
-        type: "end",
-        position: 0,
-      }
-    );
+    return this.tokens[this.index] ?? this.endToken;
   }
 
-  private advance() {
-    const token = this.current();
+  private advance(): void {
     this.index += 1;
-
-    return token;
   }
 
-  private matchOperator(operator: Operator) {
+  private matchOperator(operator: Operator): boolean {
     const token = this.current();
 
-    if (token.type === "operator" && token.value === operator) {
-      this.advance();
-      return true;
+    if (token.type !== "operator" || token.value !== operator) {
+      return false;
     }
 
-    return false;
+    this.advance();
+
+    return true;
   }
 
+  private complement(mask: number): number {
+    return this.universeMask ^ mask;
+  }
+
+  // De menor a mayor precedencia:
+  // unión, diferencia simétrica, diferencia, intersección, complemento.
   private parseUnion(): number {
     let mask = this.parseSymmetricDifference();
 
@@ -272,9 +284,7 @@ class ExpressionParser {
     let mask = this.parseIntersection();
 
     while (this.matchOperator("difference")) {
-      const rightMask = this.parseIntersection();
-
-      mask = mask & (this.universeMask ^ rightMask);
+      mask &= this.complement(this.parseIntersection());
     }
 
     return mask;
@@ -292,16 +302,45 @@ class ExpressionParser {
 
   private parseComplement(): number {
     if (this.matchOperator("complement")) {
-      const mask = this.parseComplement();
-
-      return this.universeMask ^ mask;
+      return this.complement(this.parseComplement());
     }
 
     let mask = this.parsePrimary();
 
     while (this.current().type === "complement-postfix") {
       this.advance();
-      mask = this.universeMask ^ mask;
+      mask = this.complement(mask);
+    }
+
+    return mask;
+  }
+
+  private parseParenthesizedExpression(): number {
+    this.advance();
+
+    const mask = this.parseUnion();
+    const closingToken = this.current();
+
+    if (closingToken.type !== "right-parenthesis") {
+      throw new VennExpressionError("Falta cerrar el paréntesis.", closingToken.position);
+    }
+
+    this.advance();
+
+    return mask;
+  }
+
+  private resolveIdentifier(value: string, position: number): number {
+    const name = normalizeIdentifier(value);
+
+    if (name === "u") {
+      return this.universeMask;
+    }
+
+    const mask = this.setMasks.get(name);
+
+    if (mask === undefined) {
+      throw new VennExpressionError(`No existe el conjunto “${value}”.`, position);
     }
 
     return mask;
@@ -311,41 +350,19 @@ class ExpressionParser {
     const token = this.current();
 
     if (token.type === "left-parenthesis") {
-      this.advance();
-
-      const mask = this.parseUnion();
-      const closingToken = this.current();
-
-      if (closingToken.type !== "right-parenthesis") {
-        throw new VennExpressionError("Falta cerrar el paréntesis.", closingToken.position);
-      }
-
-      this.advance();
-
-      return mask;
+      return this.parseParenthesizedExpression();
     }
 
     if (token.type === "empty-set") {
       this.advance();
+
       return 0;
     }
 
     if (token.type === "identifier") {
       this.advance();
 
-      if (token.value.toUpperCase() === "U") {
-        return this.universeMask;
-      }
-
-      const setIndex = this.diagram.sets.findIndex(
-        (set) => set.name.toLocaleLowerCase() === token.value.toLocaleLowerCase(),
-      );
-
-      if (setIndex === -1) {
-        throw new VennExpressionError(`No existe el conjunto “${token.value}”.`, token.position);
-      }
-
-      return getSetMask(setIndex, this.diagram.sets.length);
+      return this.resolveIdentifier(token.value, token.position);
     }
 
     if (token.type === "end") {
@@ -356,12 +373,6 @@ class ExpressionParser {
   }
 }
 
-export function getRegionIdsFromMask(diagram: VennDiagram, mask: number): string[] {
-  return getVennRegions(diagram)
-    .filter((_, regionIndex) => (mask & (1 << regionIndex)) !== 0)
-    .map((region) => region.id);
-}
-
 export function parseVennExpression(diagram: VennDiagram, source: string): ParsedVennExpression {
   const trimmedSource = source.trim();
 
@@ -370,7 +381,6 @@ export function parseVennExpression(diagram: VennDiagram, source: string): Parse
   }
 
   const parser = new ExpressionParser(diagram, trimmedSource);
-
   const mask = parser.parse();
 
   return {

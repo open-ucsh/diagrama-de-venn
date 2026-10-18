@@ -1,3 +1,4 @@
+import { getRegionIdsFromMask, getSelectedMask } from "@/domain/venn/expressions/expression-masks";
 import {
   createCircleSetLayout,
   createFourSetEllipseLayout,
@@ -5,19 +6,18 @@ import {
   createVennSet,
   DEFAULT_SET_COLORS,
   DEFAULT_SET_RADIUS,
-} from "./factories";
-
-import { getRegionIdsFromMask, getSelectedMask } from "./expressions/expression-masks";
-
-import type { VennDiagram, VennSet } from "./models";
-
-import type { VennProjectFile } from "./project-file";
+} from "@/domain/venn/factories";
+import type { VennDiagram } from "@/domain/venn/models";
+import type { VennProjectFile } from "@/domain/venn/project-file";
 
 const SHARE_VERSION = 1;
 const MAXIMUM_SET_COUNT = 4;
 const MAXIMUM_ELEMENT_COUNT = 200;
+const MAXIMUM_PROJECT_NAME_LENGTH = 120;
+const MAXIMUM_SET_NAME_LENGTH = 60;
+const MAXIMUM_ELEMENT_LABEL_LENGTH = 100;
 
-type SharedSet = [name: string, color: string, attenuated: 0 | 1];
+type SharedSet = [name: string, color: string, hidden: 0 | 1];
 
 type SharedElement = [label: string, membershipMask: number];
 
@@ -30,23 +30,24 @@ interface CompactSharedProject {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isValidColor(value: unknown): value is string {
   return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
 }
 
-function getElementMembershipMask(diagram: VennDiagram, setIds: string[]): number {
+function isValidName(value: unknown, maximumLength: number): value is string {
+  return typeof value === "string" && value.trim().length > 0 && value.length <= maximumLength;
+}
+
+function getElementMembershipMask(diagram: VennDiagram, setIds: readonly string[]): number {
   const memberships = new Set(setIds);
 
-  return diagram.sets.reduce((mask, set, index) => {
-    if (!memberships.has(set.id)) {
-      return mask;
-    }
-
-    return mask | (1 << index);
-  }, 0);
+  return diagram.sets.reduce(
+    (mask, set, index) => (memberships.has(set.id) ? mask | (1 << index) : mask),
+    0,
+  );
 }
 
 export function createCompactProject(
@@ -69,11 +70,7 @@ export function createCompactProject(
     n: diagram.metadata.name,
     s: sets,
     r: getSelectedMask(diagram, selectedRegionIds),
-    ...(elements.length > 0
-      ? {
-          e: elements,
-        }
-      : {}),
+    ...(elements.length > 0 ? { e: elements } : {}),
   };
 }
 
@@ -82,21 +79,17 @@ function parseSharedSet(value: unknown): SharedSet {
     throw new Error("El enlace contiene un conjunto inválido.");
   }
 
-  const name = value[0];
-  const color = value[1];
-  const attenuated = value[2];
+  const [name, color, hidden] = value;
 
   if (
-    typeof name !== "string" ||
-    !name.trim() ||
-    name.length > 60 ||
+    !isValidName(name, MAXIMUM_SET_NAME_LENGTH) ||
     !isValidColor(color) ||
-    (attenuated !== 0 && attenuated !== 1)
+    (hidden !== 0 && hidden !== 1)
   ) {
     throw new Error("El enlace contiene un conjunto inválido.");
   }
 
-  return [name.trim(), color, attenuated];
+  return [name.trim(), color, hidden];
 }
 
 function parseSharedElement(value: unknown, maximumMembershipMask: number): SharedElement {
@@ -104,13 +97,10 @@ function parseSharedElement(value: unknown, maximumMembershipMask: number): Shar
     throw new Error("El enlace contiene un elemento inválido.");
   }
 
-  const label = value[0];
-  const membershipMask = value[1];
+  const [label, membershipMask] = value;
 
   if (
-    typeof label !== "string" ||
-    !label.trim() ||
-    label.length > 100 ||
+    !isValidName(label, MAXIMUM_ELEMENT_LABEL_LENGTH) ||
     typeof membershipMask !== "number" ||
     !Number.isInteger(membershipMask) ||
     membershipMask < 0 ||
@@ -127,17 +117,11 @@ export function parseCompactProject(value: unknown): CompactSharedProject {
     throw new Error("El enlace compartido no es válido.");
   }
 
-  const version = value.v;
-  const name = value.n;
-  const rawSets = value.s;
-  const selectionMask = value.r;
-  const rawElements = value.e;
+  const { v: version, n: name, s: rawSets, r: selectionMask, e: rawElements } = value;
 
   if (
     version !== SHARE_VERSION ||
-    typeof name !== "string" ||
-    !name.trim() ||
-    name.length > 120 ||
+    !isValidName(name, MAXIMUM_PROJECT_NAME_LENGTH) ||
     !Array.isArray(rawSets) ||
     rawSets.length < 1 ||
     rawSets.length > MAXIMUM_SET_COUNT ||
@@ -149,13 +133,13 @@ export function parseCompactProject(value: unknown): CompactSharedProject {
 
   const sets = rawSets.map(parseSharedSet);
 
-  const maximumRegionMask = 2 ** (2 ** sets.length) - 1;
+  // Cada combinación de pertenencias es una región y ocupa un bit.
+  const regionCount = 2 ** sets.length;
+  const maximumRegionMask = 2 ** regionCount - 1;
 
   if (selectionMask < 0 || selectionMask > maximumRegionMask) {
     throw new Error("La selección compartida no es válida.");
   }
-
-  const maximumMembershipMask = 2 ** sets.length - 1;
 
   if (rawElements !== undefined && !Array.isArray(rawElements)) {
     throw new Error("Los elementos compartidos no son válidos.");
@@ -167,6 +151,7 @@ export function parseCompactProject(value: unknown): CompactSharedProject {
     throw new Error("El enlace contiene demasiados elementos.");
   }
 
+  const maximumMembershipMask = 2 ** sets.length - 1;
   const elements = elementValues.map((element) =>
     parseSharedElement(element, maximumMembershipMask),
   );
@@ -176,31 +161,30 @@ export function parseCompactProject(value: unknown): CompactSharedProject {
     n: name.trim(),
     s: sets,
     r: selectionMask,
-    ...(elements.length > 0
-      ? {
-          e: elements,
-        }
-      : {}),
+    ...(elements.length > 0 ? { e: elements } : {}),
   };
 }
 
 export function createDiagramFromCompactProject(project: CompactSharedProject): VennProjectFile {
   const now = new Date().toISOString();
 
-  let sets: VennSet[] = project.s.map(([name, color, attenuated]) => ({
-    ...createVennSet(
-      name,
-      {
-        x: 450,
-        y: 300,
-      },
-      DEFAULT_SET_RADIUS,
-      color,
-    ),
-    hidden: attenuated === 1,
+  const initialSets = project.s.map(([name, color, hidden]) => ({
+    ...createVennSet(name, { x: 450, y: 300 }, DEFAULT_SET_RADIUS, color),
+    hidden: hidden === 1,
   }));
 
-  sets = sets.length === 4 ? createFourSetEllipseLayout(sets) : createCircleSetLayout(sets);
+  const sets =
+    initialSets.length === MAXIMUM_SET_COUNT
+      ? createFourSetEllipseLayout(initialSets)
+      : createCircleSetLayout(initialSets);
+
+  const elements = (project.e ?? []).map(([label, membershipMask]) => {
+    const setIds = sets
+      .filter((_, index) => (membershipMask & (1 << index)) !== 0)
+      .map((set) => set.id);
+
+    return createVennElement(label, setIds);
+  });
 
   const diagram: VennDiagram = {
     id: crypto.randomUUID(),
@@ -210,16 +194,8 @@ export function createDiagramFromCompactProject(project: CompactSharedProject): 
       updatedAt: now,
     },
     sets,
-    elements: [],
+    elements,
   };
-
-  diagram.elements = (project.e ?? []).map(([label, membershipMask]) => {
-    const setIds = sets
-      .filter((_, index) => (membershipMask & (1 << index)) !== 0)
-      .map((set) => set.id);
-
-    return createVennElement(label, setIds);
-  });
 
   return {
     version: 1,

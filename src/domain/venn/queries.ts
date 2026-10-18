@@ -1,13 +1,13 @@
-import type { VennDiagram, VennElement } from "./models";
-import { getVennRegions, type VennRegion } from "./regions";
+import type { VennDiagram, VennElement } from "@/domain/venn/models";
+import { getVennRegions, type VennRegion } from "@/domain/venn/regions";
 
-function hasSameSetIds(firstSetIds: string[], secondSetIds: string[]): boolean {
-  if (firstSetIds.length !== secondSetIds.length) {
+function hasSameSetIds(first: readonly string[], second: readonly string[]): boolean {
+  if (first.length !== second.length) {
     return false;
   }
 
-  const firstIds = [...firstSetIds].sort();
-  const secondIds = [...secondSetIds].sort();
+  const firstIds = [...first].sort();
+  const secondIds = [...second].sort();
 
   return firstIds.every((setId, index) => setId === secondIds[index]);
 }
@@ -17,8 +17,8 @@ export function getElementsInRegion(diagram: VennDiagram, region: VennRegion): V
 }
 
 export function getRegionForElement(diagram: VennDiagram, element: VennElement): VennRegion {
-  const region = getVennRegions(diagram).find((currentRegion) =>
-    hasSameSetIds(currentRegion.setIds, element.setIds),
+  const region = getVennRegions(diagram).find((current) =>
+    hasSameSetIds(current.setIds, element.setIds),
   );
 
   if (!region) {
