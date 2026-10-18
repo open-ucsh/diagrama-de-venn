@@ -2,6 +2,10 @@ import { getSetBounds, getSetRadii, isEllipseSet, VENN_CANVAS_SIZE } from "@/dom
 import type { Point, VennSet } from "@/domain/venn/models";
 
 const UNIVERSE_PADDING = 28;
+const UNIVERSE_MARGIN = 12;
+const EMPTY_UNIVERSE_MARGIN = 24;
+const LABEL_DISTANCE_RATIO = 0.72;
+const SINGLE_SET_LABEL_DISTANCE_RATIO = 0.68;
 
 export interface UniverseBounds {
   x: number;
@@ -10,26 +14,35 @@ export interface UniverseBounds {
   height: number;
 }
 
-export function getUniverseBounds(sets: VennSet[]): UniverseBounds {
+export function getUniverseBounds(sets: readonly VennSet[]): UniverseBounds {
   if (sets.length === 0) {
     return {
-      x: 24,
-      y: 24,
-      width: VENN_CANVAS_SIZE.width - 48,
-      height: VENN_CANVAS_SIZE.height - 48,
+      x: EMPTY_UNIVERSE_MARGIN,
+      y: EMPTY_UNIVERSE_MARGIN,
+      width: VENN_CANVAS_SIZE.width - EMPTY_UNIVERSE_MARGIN * 2,
+      height: VENN_CANVAS_SIZE.height - EMPTY_UNIVERSE_MARGIN * 2,
     };
   }
 
-  const setBounds = sets.map(getSetBounds);
-  const left = Math.min(...setBounds.map((bounds) => bounds.left));
-  const right = Math.max(...setBounds.map((bounds) => bounds.right));
-  const top = Math.min(...setBounds.map((bounds) => bounds.top));
-  const bottom = Math.max(...setBounds.map((bounds) => bounds.bottom));
+  let left = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let top = Number.POSITIVE_INFINITY;
+  let bottom = Number.NEGATIVE_INFINITY;
 
-  const x = Math.max(12, left - UNIVERSE_PADDING);
-  const y = Math.max(12, top - UNIVERSE_PADDING);
-  const rightEdge = Math.min(VENN_CANVAS_SIZE.width - 12, right + UNIVERSE_PADDING);
-  const bottomEdge = Math.min(VENN_CANVAS_SIZE.height - 12, bottom + UNIVERSE_PADDING);
+  for (const set of sets) {
+    const bounds = getSetBounds(set);
+
+    left = Math.min(left, bounds.left);
+    right = Math.max(right, bounds.right);
+    top = Math.min(top, bounds.top);
+    bottom = Math.max(bottom, bounds.bottom);
+  }
+
+  const x = Math.max(UNIVERSE_MARGIN, left - UNIVERSE_PADDING);
+  const y = Math.max(UNIVERSE_MARGIN, top - UNIVERSE_PADDING);
+
+  const rightEdge = Math.min(VENN_CANVAS_SIZE.width - UNIVERSE_MARGIN, right + UNIVERSE_PADDING);
+  const bottomEdge = Math.min(VENN_CANVAS_SIZE.height - UNIVERSE_MARGIN, bottom + UNIVERSE_PADDING);
 
   return {
     x,
@@ -48,52 +61,67 @@ export function isPointInsideUniverse(point: Point, bounds: UniverseBounds): boo
   );
 }
 
-function getBoundaryDistance(set: VennSet, direction: Point): number {
-  if (!isEllipseSet(set)) return set.radius;
+function normalizeDirection(direction: Point): Point {
+  const length = Math.hypot(direction.x, direction.y);
 
-  const { radiusX, radiusY } = getSetRadii(set);
-  const directionLength = Math.hypot(direction.x, direction.y) || 1;
-  const unitX = direction.x / directionLength;
-  const unitY = direction.y / directionLength;
-  const rotation = ((set.rotation ?? 0) * Math.PI) / 180;
-  const localX = unitX * Math.cos(rotation) + unitY * Math.sin(rotation);
-  const localY = -unitX * Math.sin(rotation) + unitY * Math.cos(rotation);
-
-  return (
-    1 / Math.sqrt((localX * localX) / (radiusX * radiusX) + (localY * localY) / (radiusY * radiusY))
-  );
-}
-
-export function getSetLabelPosition(sets: VennSet[], setIndex: number): Point {
-  const set = sets[setIndex];
-
-  if (!set) return { x: 0, y: 0 };
-
-  const otherSets = sets.filter((_, index) => index !== setIndex);
-
-  if (otherSets.length === 0) {
-    return {
-      x: set.position.x,
-      y: set.position.y - set.radius * 0.68,
-    };
+  if (length === 0) {
+    return { x: 0, y: -1 };
   }
 
-  const otherCenter = {
-    x: otherSets.reduce((total, currentSet) => total + currentSet.position.x, 0) / otherSets.length,
-    y: otherSets.reduce((total, currentSet) => total + currentSet.position.y, 0) / otherSets.length,
+  return {
+    x: direction.x / length,
+    y: direction.y / length,
   };
+}
 
-  const direction = {
-    x: set.position.x - otherCenter.x,
-    y: set.position.y - otherCenter.y,
-  };
+function getBoundaryDistance(set: VennSet, unitDirection: Point): number {
+  if (!isEllipseSet(set)) {
+    return set.radius;
+  }
 
-  const directionLength = Math.hypot(direction.x, direction.y) || 1;
-  const boundaryDistance = getBoundaryDistance(set, direction);
-  const labelDistance = boundaryDistance * 0.72;
+  const { radiusX, radiusY } = getSetRadii(set);
+  const rotation = ((set.rotation ?? 0) * Math.PI) / 180;
+  const cosine = Math.cos(rotation);
+  const sine = Math.sin(rotation);
+
+  const localX = unitDirection.x * cosine + unitDirection.y * sine;
+  const localY = -unitDirection.x * sine + unitDirection.y * cosine;
+
+  return 1 / Math.hypot(localX / radiusX, localY / radiusY);
+}
+
+export function getSetLabelPosition(sets: readonly VennSet[], setIndex: number): Point {
+  const set = sets[setIndex];
+
+  if (!set) {
+    return { x: 0, y: 0 };
+  }
+
+  const otherSets = sets.filter((_, index) => index !== setIndex);
+  let direction: Point = { x: 0, y: -1 };
+
+  if (otherSets.length > 0) {
+    let totalX = 0;
+    let totalY = 0;
+
+    for (const otherSet of otherSets) {
+      totalX += otherSet.position.x;
+      totalY += otherSet.position.y;
+    }
+
+    direction = normalizeDirection({
+      x: set.position.x - totalX / otherSets.length,
+      y: set.position.y - totalY / otherSets.length,
+    });
+  }
+
+  const distanceRatio =
+    otherSets.length === 0 ? SINGLE_SET_LABEL_DISTANCE_RATIO : LABEL_DISTANCE_RATIO;
+
+  const distance = getBoundaryDistance(set, direction) * distanceRatio;
 
   return {
-    x: set.position.x + (direction.x / directionLength) * labelDistance,
-    y: set.position.y + (direction.y / directionLength) * labelDistance,
+    x: set.position.x + direction.x * distance,
+    y: set.position.y + direction.y * distance,
   };
 }
