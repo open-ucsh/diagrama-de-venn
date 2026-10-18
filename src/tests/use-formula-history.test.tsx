@@ -13,18 +13,23 @@ function createMemoryStorage(): Storage {
     get length() {
       return entries.size;
     },
+
     clear() {
       entries.clear();
     },
+
     getItem(key) {
       return entries.get(key) ?? null;
     },
+
     key(index) {
-      return [...entries.keys()][index] ?? null;
+      return Array.from(entries.keys())[index] ?? null;
     },
+
     removeItem(key) {
       entries.delete(key);
     },
+
     setItem(key, value) {
       entries.set(key, value);
     },
@@ -33,11 +38,10 @@ function createMemoryStorage(): Storage {
 
 function mountHistory() {
   const container = document.createElement("div");
-  const root = createRoot(container);
-
-  let current: ReturnType<typeof useFormulaHistory> | null = null;
-
   document.body.append(container);
+
+  const root = createRoot(container);
+  let current: ReturnType<typeof useFormulaHistory> | null = null;
 
   function Harness() {
     const history = useFormulaHistory();
@@ -53,84 +57,103 @@ function mountHistory() {
     return null;
   }
 
-  act(() => {
-    root.render(
-      <StrictMode>
-        <Harness />
-      </StrictMode>,
-    );
-  });
+  try {
+    act(() => {
+      root.render(
+        <StrictMode>
+          <Harness />
+        </StrictMode>,
+      );
+    });
+  } catch (error) {
+    try {
+      act(() => {
+        root.unmount();
+      });
+    } finally {
+      container.remove();
+    }
+
+    throw error;
+  }
 
   return {
     get history() {
-      if (!current) {
+      if (current === null) {
         throw new Error("El historial no se inicializó.");
       }
 
       return current;
     },
+
     dispose() {
-      act(() => root.unmount());
-      container.remove();
+      try {
+        act(() => {
+          root.unmount();
+        });
+      } finally {
+        container.remove();
+      }
     },
   };
 }
 
-let storage: Storage;
-let view: ReturnType<typeof mountHistory> | undefined;
-let originalStorageDescriptor: PropertyDescriptor | undefined;
-let originalActDescriptor: PropertyDescriptor | undefined;
+describe("Historial de fórmulas", () => {
+  let storage: Storage;
+  let view: ReturnType<typeof mountHistory> | undefined;
+  let originalStorageDescriptor: PropertyDescriptor | undefined;
 
-beforeEach(() => {
-  originalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
-  originalActDescriptor = Object.getOwnPropertyDescriptor(globalThis, "IS_REACT_ACT_ENVIRONMENT");
+  function renderHistory() {
+    const mounted = mountHistory();
+    view = mounted;
 
-  storage = createMemoryStorage();
-
-  // Aísla las pruebas del almacenamiento que proporcione Node o JSDOM.
-  Object.defineProperty(window, "localStorage", {
-    configurable: true,
-    value: storage,
-  });
-
-  Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
-    configurable: true,
-    value: true,
-  });
-});
-
-afterEach(() => {
-  view?.dispose();
-  view = undefined;
-
-  vi.restoreAllMocks();
-
-  if (originalStorageDescriptor) {
-    Object.defineProperty(window, "localStorage", originalStorageDescriptor);
-  } else {
-    Reflect.deleteProperty(window, "localStorage");
+    return mounted;
   }
 
-  if (originalActDescriptor) {
-    Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", originalActDescriptor);
-  } else {
-    Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
+  function expectPersistedHistory(expected: string[]) {
+    expect(storage.getItem(STORAGE_KEY)).toBe(JSON.stringify(expected));
   }
-});
 
-describe("📝 Historial de fórmulas", () => {
+  beforeEach(() => {
+    originalStorageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+    storage = createMemoryStorage();
+
+    // Sustituye el almacenamiento del entorno sin modificar su descriptor original.
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: storage,
+    });
+
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  });
+
+  afterEach(() => {
+    try {
+      view?.dispose();
+    } finally {
+      view = undefined;
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+
+      if (originalStorageDescriptor) {
+        Object.defineProperty(window, "localStorage", originalStorageDescriptor);
+      } else {
+        Reflect.deleteProperty(window, "localStorage");
+      }
+    }
+  });
+
   it("normaliza las entradas guardadas y conserva su orden", () => {
     storage.setItem(STORAGE_KEY, JSON.stringify([" A ", "", "A", 42, "B", "   "]));
 
-    view = mountHistory();
+    const mounted = renderHistory();
 
-    expect(view.history.formulaHistory).toEqual(["A", "B"]);
-    expect(storage.getItem(STORAGE_KEY)).toBe(JSON.stringify(["A", "B"]));
+    expect(mounted.history.formulaHistory).toEqual(["A", "B"]);
+    expectPersistedHistory(["A", "B"]);
   });
 
   it("mueve una fórmula existente al inicio sin duplicarla", () => {
-    const mounted = mountHistory();
-    view = mounted;
+    const mounted = renderHistory();
 
     act(() => {
       mounted.history.saveFormulaToHistory("A");
@@ -139,12 +162,11 @@ describe("📝 Historial de fórmulas", () => {
     });
 
     expect(mounted.history.formulaHistory).toEqual(["A", "B"]);
-    expect(storage.getItem(STORAGE_KEY)).toBe(JSON.stringify(["A", "B"]));
+    expectPersistedHistory(["A", "B"]);
   });
 
   it("ignora las fórmulas vacías", () => {
-    const mounted = mountHistory();
-    view = mounted;
+    const mounted = renderHistory();
 
     act(() => {
       mounted.history.saveFormulaToHistory("");
@@ -152,12 +174,11 @@ describe("📝 Historial de fórmulas", () => {
     });
 
     expect(mounted.history.formulaHistory).toEqual([]);
-    expect(storage.getItem(STORAGE_KEY)).toBe("[]");
+    expectPersistedHistory([]);
   });
 
   it("conserva únicamente las diez fórmulas más recientes", () => {
-    const mounted = mountHistory();
-    view = mounted;
+    const mounted = renderHistory();
 
     act(() => {
       for (let index = 0; index < 12; index += 1) {
@@ -168,50 +189,50 @@ describe("📝 Historial de fórmulas", () => {
     const expected = Array.from({ length: 10 }, (_, index) => `F${11 - index}`);
 
     expect(mounted.history.formulaHistory).toEqual(expected);
-    expect(storage.getItem(STORAGE_KEY)).toBe(JSON.stringify(expected));
+    expectPersistedHistory(expected);
   });
 
-  it("guarda la eliminación de una fórmula", () => {
+  it("elimina una fórmula y guarda el historial actualizado", () => {
     storage.setItem(STORAGE_KEY, JSON.stringify(["A", "B"]));
 
-    const mounted = mountHistory();
-    view = mounted;
+    const mounted = renderHistory();
 
     act(() => {
       mounted.history.deleteFormulaFromHistory("A");
     });
 
     expect(mounted.history.formulaHistory).toEqual(["B"]);
-    expect(storage.getItem(STORAGE_KEY)).toBe(JSON.stringify(["B"]));
+    expectPersistedHistory(["B"]);
   });
 
-  it("permite vaciar el historial y guarda el resultado", () => {
+  it("vacía el historial y guarda el resultado", () => {
     storage.setItem(STORAGE_KEY, JSON.stringify(["A", "B"]));
 
-    const mounted = mountHistory();
-    view = mounted;
+    const mounted = renderHistory();
 
     act(() => {
       mounted.history.clearFormulaHistory();
     });
 
     expect(mounted.history.formulaHistory).toEqual([]);
-    expect(storage.getItem(STORAGE_KEY)).toBe("[]");
+    expectPersistedHistory([]);
   });
 
   it("recupera un historial vacío cuando el JSON está dañado", () => {
     storage.setItem(STORAGE_KEY, "{invalid");
-    view = mountHistory();
 
-    expect(view.history.formulaHistory).toEqual([]);
-    expect(storage.getItem(STORAGE_KEY)).toBe("[]");
+    const mounted = renderHistory();
+
+    expect(mounted.history.formulaHistory).toEqual([]);
+    expectPersistedHistory([]);
   });
 
-  it("descarta datos guardados que no sean una lista", () => {
+  it("descarta los datos guardados que no sean una lista", () => {
     storage.setItem(STORAGE_KEY, JSON.stringify({ formula: "A" }));
-    view = mountHistory();
 
-    expect(view.history.formulaHistory).toEqual([]);
+    const mounted = renderHistory();
+
+    expect(mounted.history.formulaHistory).toEqual([]);
   });
 
   it("permite trabajar aunque falle la lectura del almacenamiento", () => {
@@ -219,8 +240,7 @@ describe("📝 Historial de fórmulas", () => {
       throw new Error("Lectura no disponible.");
     });
 
-    const mounted = mountHistory();
-    view = mounted;
+    const mounted = renderHistory();
 
     act(() => {
       mounted.history.saveFormulaToHistory("A");
@@ -234,8 +254,7 @@ describe("📝 Historial de fórmulas", () => {
       throw new Error("Escritura no disponible.");
     });
 
-    const mounted = mountHistory();
-    view = mounted;
+    const mounted = renderHistory();
 
     act(() => {
       mounted.history.saveFormulaToHistory("A");

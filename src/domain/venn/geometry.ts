@@ -1,4 +1,4 @@
-import type { Point, VennSet } from "./models";
+import type { Point, VennSet } from "@/domain/venn/models";
 
 export const VENN_CANVAS_SIZE = {
   height: 600,
@@ -7,7 +7,20 @@ export const VENN_CANVAS_SIZE = {
 
 const GEOMETRY_TOLERANCE = 0.000001;
 const ELLIPSE_SAMPLE_COUNT = 240;
+const COMMON_INTERSECTION_SAMPLE_COUNT = 120;
 const COMMON_INTERSECTION_STEP = 3;
+
+interface SetRadii {
+  radiusX: number;
+  radiusY: number;
+}
+
+interface SetBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
@@ -25,7 +38,7 @@ export function isEllipseSet(set: VennSet): boolean {
   return set.shape === "ellipse";
 }
 
-export function getSetRadii(set: VennSet) {
+export function getSetRadii(set: VennSet): SetRadii {
   if (isEllipseSet(set)) {
     return {
       radiusX: set.radiusX ?? set.radius,
@@ -39,25 +52,20 @@ export function getSetRadii(set: VennSet) {
   };
 }
 
-export function getSetBounds(set: VennSet) {
+export function getSetBounds(set: VennSet): SetBounds {
   const { radiusX, radiusY } = getSetRadii(set);
 
-  if (!isEllipseSet(set)) {
-    return {
-      left: set.position.x - radiusX,
-      right: set.position.x + radiusX,
-      top: set.position.y - radiusY,
-      bottom: set.position.y + radiusY,
-    };
+  let halfWidth = radiusX;
+  let halfHeight = radiusY;
+
+  if (isEllipseSet(set)) {
+    const rotation = getRotationRadians(set);
+    const cosine = Math.cos(rotation);
+    const sine = Math.sin(rotation);
+
+    halfWidth = Math.hypot(radiusX * cosine, radiusY * sine);
+    halfHeight = Math.hypot(radiusX * sine, radiusY * cosine);
   }
-
-  const rotation = getRotationRadians(set);
-  const cosine = Math.cos(rotation);
-  const sine = Math.sin(rotation);
-
-  const halfWidth = Math.sqrt(radiusX ** 2 * cosine ** 2 + radiusY ** 2 * sine ** 2);
-
-  const halfHeight = Math.sqrt(radiusX ** 2 * sine ** 2 + radiusY ** 2 * cosine ** 2);
 
   return {
     left: set.position.x - halfWidth,
@@ -85,13 +93,15 @@ export function isPointInsideSet(point: Point, set: VennSet): boolean {
 
   const { radiusX, radiusY } = getSetRadii(set);
   const rotation = getRotationRadians(set);
+  const cosine = Math.cos(rotation);
+  const sine = Math.sin(rotation);
   const differenceX = point.x - set.position.x;
   const differenceY = point.y - set.position.y;
 
-  const localX = differenceX * Math.cos(rotation) + differenceY * Math.sin(rotation);
-  const localY = -differenceX * Math.sin(rotation) + differenceY * Math.cos(rotation);
+  const localX = differenceX * cosine + differenceY * sine;
+  const localY = -differenceX * sine + differenceY * cosine;
 
-  const normalizedDistance = localX ** 2 / radiusX ** 2 + localY ** 2 / radiusY ** 2;
+  const normalizedDistance = (localX / radiusX) ** 2 + (localY / radiusY) ** 2;
 
   return normalizedDistance <= 1 + GEOMETRY_TOLERANCE;
 }
@@ -120,9 +130,9 @@ function getCircleIntersectionPoints(first: VennSet, second: VennSet): Point[] {
   const distance = Math.hypot(dx, dy);
 
   if (
+    distance === 0 ||
     distance > first.radius + second.radius + GEOMETRY_TOLERANCE ||
-    distance < Math.abs(first.radius - second.radius) - GEOMETRY_TOLERANCE ||
-    distance === 0
+    distance < Math.abs(first.radius - second.radius) - GEOMETRY_TOLERANCE
   ) {
     return [];
   }
@@ -161,63 +171,65 @@ function getCircleIntersectionPoints(first: VennSet, second: VennSet): Point[] {
   ];
 }
 
-function circleSetsIntersect(first: VennSet, second: VennSet): boolean {
-  return (
-    getDistance(first.position, second.position) <=
-    first.radius + second.radius + GEOMETRY_TOLERANCE
-  );
-}
-
 export function setsIntersect(first: VennSet, second: VennSet): boolean {
   if (!isEllipseSet(first) && !isEllipseSet(second)) {
-    return circleSetsIntersect(first, second);
+    return (
+      getDistance(first.position, second.position) <=
+      first.radius + second.radius + GEOMETRY_TOLERANCE
+    );
   }
 
   if (isPointInsideSet(first.position, second) || isPointInsideSet(second.position, first)) {
     return true;
   }
 
-  const firstBoundary = getEllipseBoundaryPoints(first);
-
-  if (firstBoundary.some((point) => isPointInsideSet(point, second))) {
-    return true;
-  }
-
-  return getEllipseBoundaryPoints(second).some((point) => isPointInsideSet(point, first));
+  // El muestreo puede omitir tangencias o intersecciones muy pequeñas.
+  return (
+    getEllipseBoundaryPoints(first).some((point) => isPointInsideSet(point, second)) ||
+    getEllipseBoundaryPoints(second).some((point) => isPointInsideSet(point, first))
+  );
 }
 
-function getCommonBounds(sets: VennSet[]) {
+function getCommonBounds(sets: readonly VennSet[]): SetBounds {
   const bounds = sets.map(getSetBounds);
 
   return {
-    left: Math.max(...bounds.map((currentBounds) => currentBounds.left)),
-    right: Math.min(...bounds.map((currentBounds) => currentBounds.right)),
-    top: Math.max(...bounds.map((currentBounds) => currentBounds.top)),
-    bottom: Math.min(...bounds.map((currentBounds) => currentBounds.bottom)),
+    left: Math.max(...bounds.map((current) => current.left)),
+    right: Math.min(...bounds.map((current) => current.right)),
+    top: Math.max(...bounds.map((current) => current.top)),
+    bottom: Math.min(...bounds.map((current) => current.bottom)),
   };
 }
 
-function ellipseSetsHaveCommonIntersection(sets: VennSet[]): boolean {
-  const commonBounds = getCommonBounds(sets);
+function isPointInsideEverySet(point: Point, sets: readonly VennSet[]): boolean {
+  return sets.every((set) => isPointInsideSet(point, set));
+}
 
-  if (commonBounds.left > commonBounds.right || commonBounds.top > commonBounds.bottom) {
+function ellipseSetsHaveCommonIntersection(sets: readonly VennSet[]): boolean {
+  const bounds = getCommonBounds(sets);
+
+  if (bounds.left > bounds.right || bounds.top > bounds.bottom) {
     return false;
   }
 
-  const candidates: Point[] = [
-    ...sets.map((set) => set.position),
-    ...sets.flatMap((set) => getEllipseBoundaryPoints(set, 120)),
-  ];
-
-  if (candidates.some((point) => sets.every((set) => isPointInsideSet(point, set)))) {
-    return true;
+  for (const set of sets) {
+    if (isPointInsideEverySet(set.position, sets)) {
+      return true;
+    }
   }
 
-  for (let y = commonBounds.top; y <= commonBounds.bottom; y += COMMON_INTERSECTION_STEP) {
-    for (let x = commonBounds.left; x <= commonBounds.right; x += COMMON_INTERSECTION_STEP) {
-      const point = { x, y };
+  for (const set of sets) {
+    const boundary = getEllipseBoundaryPoints(set, COMMON_INTERSECTION_SAMPLE_COUNT);
 
-      if (sets.every((set) => isPointInsideSet(point, set))) {
+    if (boundary.some((point) => isPointInsideEverySet(point, sets))) {
+      return true;
+    }
+  }
+
+  // La cuadrícula complementa el muestreo del borde; no garantiza exactitud.
+  for (let y = bounds.top; y <= bounds.bottom; y += COMMON_INTERSECTION_STEP) {
+    for (let x = bounds.left; x <= bounds.right; x += COMMON_INTERSECTION_STEP) {
+      if (isPointInsideEverySet({ x, y }, sets)) {
         return true;
       }
     }
@@ -227,22 +239,33 @@ function ellipseSetsHaveCommonIntersection(sets: VennSet[]): boolean {
 }
 
 export function setsHaveCommonIntersection(sets: VennSet[]): boolean {
-  if (sets.length === 0) return false;
-  if (sets.length === 1) return true;
+  if (sets.length === 0) {
+    return false;
+  }
+
+  if (sets.length === 1) {
+    return true;
+  }
 
   if (sets.some(isEllipseSet)) {
     return ellipseSetsHaveCommonIntersection(sets);
   }
 
-  const centers = sets.map((set) => set.position);
+  for (const set of sets) {
+    if (isPointInsideEverySet(set.position, sets)) {
+      return true;
+    }
+  }
 
-  const intersectionPoints = sets.flatMap((first, firstIndex) =>
-    sets.flatMap((second, secondIndex) =>
-      firstIndex < secondIndex ? getCircleIntersectionPoints(first, second) : [],
-    ),
-  );
+  for (const [firstIndex, first] of sets.entries()) {
+    for (const second of sets.slice(firstIndex + 1)) {
+      const intersections = getCircleIntersectionPoints(first, second);
 
-  return [...centers, ...intersectionPoints].some((point) =>
-    sets.every((set) => isPointInsideSet(point, set)),
-  );
+      if (intersections.some((point) => isPointInsideEverySet(point, sets))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }

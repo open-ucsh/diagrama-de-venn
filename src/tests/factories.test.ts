@@ -2,21 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import { createInitialDiagram } from "@/domain/venn/factories";
 
-describe("createInitialDiagram", () => {
-  it("creates a diagram with two initial sets", () => {
+describe("Creación del diagrama inicial", () => {
+  it("crea los conjuntos iniciales A y B", () => {
     const diagram = createInitialDiagram();
 
-    expect(diagram.sets).toHaveLength(2);
     expect(diagram.sets.map((set) => set.name)).toEqual(["A", "B"]);
   });
 
-  it("uses the provided diagram name", () => {
+  it("utiliza el nombre proporcionado para el diagrama", () => {
     const diagram = createInitialDiagram("Encuesta de estudiantes");
 
     expect(diagram.metadata.name).toBe("Encuesta de estudiantes");
   });
 
-  it("creates different diagram identifiers", () => {
+  it("genera un identificador diferente para cada diagrama", () => {
     const firstDiagram = createInitialDiagram();
     const secondDiagram = createInitialDiagram();
 

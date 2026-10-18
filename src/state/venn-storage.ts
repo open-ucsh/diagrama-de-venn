@@ -3,6 +3,8 @@ import type { StateStorage } from "zustand/middleware";
 
 import { parseProjectFile } from "@/domain/venn/project-file";
 
+const STORAGE_VERSION = 1;
+
 type RecoveryIssue = "invalid-json" | "unsupported-version" | "invalid-data" | "unavailable";
 
 interface StorageRecovery {
@@ -15,19 +17,25 @@ export const useStorageRecovery = create<StorageRecovery>((set) => ({
   resolve: () => set({ issue: null }),
 }));
 
-const memoryStorage = (() => {
+function createMemoryStorage() {
   const values = new Map<string, string>();
 
   return {
-    getItem: (name: string) => values.get(name) ?? null,
-    removeItem: (name: string) => {
-      values.delete(name);
+    getItem(name: string): string | null {
+      return values.get(name) ?? null;
     },
-    setItem: (name: string, value: string) => {
+
+    setItem(name: string, value: string): void {
       values.set(name, value);
     },
+
+    removeItem(name: string): void {
+      values.delete(name);
+    },
   };
-})();
+}
+
+const memoryStorage = createMemoryStorage();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -35,12 +43,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function reportIssue(issue: RecoveryIssue): null {
   useStorageRecovery.setState({ issue });
+
   return null;
 }
 
 export function createRecoverableStorage(storage: Storage): StateStorage {
   return {
-    getItem: (name) => {
+    getItem(name) {
       let raw: string | null;
 
       try {
@@ -51,6 +60,7 @@ export function createRecoverableStorage(storage: Storage): StateStorage {
 
       if (raw === null) {
         useStorageRecovery.getState().resolve();
+
         return null;
       }
 
@@ -66,13 +76,15 @@ export function createRecoverableStorage(storage: Storage): StateStorage {
         return reportIssue("invalid-data");
       }
 
-      if (value.version !== 1) {
+      if (value.version !== STORAGE_VERSION) {
         return reportIssue("unsupported-version");
       }
 
       if (!isRecord(value.state)) {
         return reportIssue("invalid-data");
       }
+
+      let normalized: string;
 
       try {
         const project = parseProjectFile({
@@ -81,10 +93,9 @@ export function createRecoverableStorage(storage: Storage): StateStorage {
           selectedRegionIds: [],
         });
 
-        useStorageRecovery.getState().resolve();
-
-        return JSON.stringify({
-          version: 1,
+        // Solo permite hidratar los datos persistidos, nunca las acciones del store.
+        normalized = JSON.stringify({
+          version: STORAGE_VERSION,
           state: {
             diagram: project.diagram,
           },
@@ -92,9 +103,14 @@ export function createRecoverableStorage(storage: Storage): StateStorage {
       } catch {
         return reportIssue("invalid-data");
       }
+
+      useStorageRecovery.getState().resolve();
+
+      return normalized;
     },
 
-    setItem: (name, value) => {
+    setItem(name, value) {
+      // Conserva los datos originales hasta que se resuelva la recuperación.
       if (useStorageRecovery.getState().issue !== null) {
         return;
       }
@@ -106,8 +122,13 @@ export function createRecoverableStorage(storage: Storage): StateStorage {
       }
     },
 
-    removeItem: (name) => {
-      storage.removeItem(name);
+    removeItem(name) {
+      try {
+        storage.removeItem(name);
+      } catch (error) {
+        reportIssue("unavailable");
+        throw error;
+      }
     },
   };
 }
@@ -118,14 +139,14 @@ export function getStorage(): StateStorage {
   }
 
   try {
-    const browserStorage = window.localStorage;
+    const storage = window.localStorage;
 
     if (
-      typeof browserStorage?.getItem === "function" &&
-      typeof browserStorage?.removeItem === "function" &&
-      typeof browserStorage?.setItem === "function"
+      typeof storage?.getItem === "function" &&
+      typeof storage.setItem === "function" &&
+      typeof storage.removeItem === "function"
     ) {
-      return createRecoverableStorage(browserStorage);
+      return createRecoverableStorage(storage);
     }
   } catch {
     return memoryStorage;

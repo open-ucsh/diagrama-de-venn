@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { getSelectedMask } from "@/domain/venn/expressions/expression-masks";
 import { createProjectFile, parseProjectFile } from "@/domain/venn/project-file";
@@ -11,9 +11,49 @@ import { createShareUrl } from "@/services/venn/share-project";
 import { useVennExpression } from "@/state/venn-expression";
 import { useVennStore } from "@/state/venn-store";
 
+const COPY_FEEDBACK_DURATION = 1_500;
+
+interface ExportMessage {
+  text: string;
+  type: "success" | "error";
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function useCopyFeedback() {
+  const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  function showCopied(): void {
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    setCopied(true);
+
+    timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = null;
+      setCopied(false);
+    }, COPY_FEEDBACK_DURATION);
+  }
+
+  return { copied, showCopied };
+}
+
 export function useExportMenu() {
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(false);
 
   const diagram = useVennStore((state) => state.diagram);
   const selectedRegionIds = useVennStore((state) => state.selectedRegionIds);
@@ -21,17 +61,16 @@ export function useExportMenu() {
   const expression = useVennExpression();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [message, setMessage] = useState<{
-    text: string;
-    type: "success" | "error";
-  } | null>(null);
+  const [message, setMessage] = useState<ExportMessage | null>(null);
 
-  const setsKey = JSON.stringify(diagram.sets.map((set) => ({ id: set.id, name: set.name })));
+  const formulaFeedback = useCopyFeedback();
+  const linkFeedback = useCopyFeedback();
 
+  const setsKey = JSON.stringify(diagram.sets.map(({ id, name }) => ({ id, name })));
   const selectedMask = getSelectedMask(diagram, selectedRegionIds);
   const hasSelection = selectedRegionIds.length > 0;
+
+  // Debe coincidir con la clave utilizada por el editor de fórmulas.
   const searchKey = JSON.stringify([setsKey, selectedMask, hasSelection]);
 
   const formula =
@@ -39,30 +78,53 @@ export function useExportMenu() {
       ? expression.text
       : null;
 
-  function closeMenu() {
-    detailsRef.current?.querySelector("summary")?.focus();
-    detailsRef.current?.removeAttribute("open");
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const dismissMenu = useCallback((restoreFocus: boolean): void => {
+    const details = detailsRef.current;
+
+    if (details) {
+      details.open = false;
+
+      if (restoreFocus) {
+        details.querySelector("summary")?.focus();
+      }
+    }
+
     setIsOpen(false);
     setMessage(null);
-  }
+  }, []);
+
+  const closeMenu = useCallback((): void => {
+    dismissMenu(true);
+  }, [dismissMenu]);
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeMenu();
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) {
+        return;
       }
+
+      event.preventDefault();
+      closeMenu();
     }
 
-    function handlePointerDown(event: PointerEvent) {
+    function handlePointerDown(event: PointerEvent): void {
       const details = detailsRef.current;
 
       if (details && event.target instanceof Node && !details.contains(event.target)) {
-        closeMenu();
+        // Un clic fuera conserva el foco en el destino del usuario.
+        dismissMenu(false);
       }
     }
 
@@ -73,81 +135,74 @@ export function useExportMenu() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("pointerdown", handlePointerDown);
     };
-  }, [isOpen]);
+  }, [isOpen, closeMenu, dismissMenu]);
 
-  function showMessage(text: string, type: "success" | "error") {
-    setMessage({ text, type });
+  function showMessage(text: string, type: ExportMessage["type"]): void {
+    if (mountedRef.current) {
+      setMessage({ text, type });
+    }
   }
 
-  async function copyFormula() {
+  async function copyFormula(): Promise<void> {
     if (!formula) {
       return;
     }
 
     try {
       await navigator.clipboard.writeText(formula);
-      setCopied(true);
 
-      window.setTimeout(() => {
-        setCopied(false);
-      }, 1_500);
+      if (mountedRef.current) {
+        formulaFeedback.showCopied();
+      }
     } catch {
       showMessage("No fue posible copiar la fórmula.", "error");
     }
   }
 
-  async function copyShareLink() {
+  async function copyShareLink(): Promise<void> {
     try {
       const link = createShareUrl(diagram, selectedRegionIds);
 
       await navigator.clipboard.writeText(link);
-      setCopiedLink(true);
 
-      window.setTimeout(() => {
-        setCopiedLink(false);
-      }, 1_500);
+      if (mountedRef.current) {
+        linkFeedback.showCopied();
+      }
     } catch {
       showMessage("No fue posible copiar el enlace.", "error");
     }
   }
 
-  function handleSvgExport() {
+  function handleSvgExport(): void {
     try {
       exportDiagramSvg(diagram.metadata.name);
       showMessage("SVG descargado.", "success");
     } catch (error) {
-      showMessage(
-        error instanceof Error ? error.message : "No fue posible descargar el SVG.",
-        "error",
-      );
+      showMessage(getErrorMessage(error, "No fue posible descargar el SVG."), "error");
     }
   }
 
-  async function handlePngExport() {
+  async function handlePngExport(): Promise<void> {
     try {
       await exportDiagramPng(diagram.metadata.name);
       showMessage("PNG descargado.", "success");
     } catch (error) {
-      showMessage(
-        error instanceof Error ? error.message : "No fue posible descargar el PNG.",
-        "error",
-      );
+      showMessage(getErrorMessage(error, "No fue posible descargar el PNG."), "error");
     }
   }
 
-  function handleJsonExport() {
+  function handleJsonExport(): void {
     try {
-      exportProjectJson(diagram.metadata.name, createProjectFile(diagram, selectedRegionIds));
+      const project = createProjectFile(diagram, selectedRegionIds);
+
+      exportProjectJson(diagram.metadata.name, project);
       showMessage("Proyecto descargado.", "success");
     } catch (error) {
-      showMessage(
-        error instanceof Error ? error.message : "No fue posible descargar el proyecto.",
-        "error",
-      );
+      showMessage(getErrorMessage(error, "No fue posible descargar el proyecto."), "error");
     }
   }
 
-  async function handleImport(event: ChangeEvent<HTMLInputElement>) {
+  async function handleImport(event: ChangeEvent<HTMLInputElement>): Promise<void> {
     const input = event.currentTarget;
     const file = input.files?.[0];
 
@@ -157,16 +212,18 @@ export function useExportMenu() {
 
     try {
       const content = await file.text();
+
+      if (!mountedRef.current) {
+        return;
+      }
+
       const parsedJson: unknown = JSON.parse(content);
       const project = parseProjectFile(parsedJson);
 
       importProject(project.diagram, project.selectedRegionIds);
       showMessage("Proyecto importado correctamente.", "success");
     } catch (error) {
-      showMessage(
-        error instanceof Error ? error.message : "No fue posible importar el proyecto.",
-        "error",
-      );
+      showMessage(getErrorMessage(error, "No fue posible importar el proyecto."), "error");
     } finally {
       input.value = "";
     }
@@ -176,8 +233,8 @@ export function useExportMenu() {
     detailsRef,
     fileInputRef,
     setIsOpen,
-    copied,
-    copiedLink,
+    copied: formulaFeedback.copied,
+    copiedLink: linkFeedback.copied,
     message,
     setMessage,
     formula,

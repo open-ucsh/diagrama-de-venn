@@ -1,5 +1,5 @@
-import { createCircleSetLayout, createFourSetEllipseLayout } from "./factories";
-import type { Point, VennDiagram, VennElement, VennSet } from "./models";
+import { createCircleSetLayout, createFourSetEllipseLayout } from "@/domain/venn/factories";
+import type { Point, VennDiagram, VennElement, VennSet } from "@/domain/venn/models";
 
 export const MAX_SETS = 4;
 export const MIN_SETS = 1;
@@ -15,10 +15,10 @@ function requireUniqueSetName(diagram: VennDiagram, name: string, excludedSetId?
     throw new Error("El nombre del conjunto no puede estar vacío. Escribe un nombre.");
   }
 
+  const comparisonName = normalizedName.toLowerCase();
   const duplicate = diagram.sets.find(
     (set) =>
-      set.id !== excludedSetId &&
-      normalizeSetName(set.name).toLowerCase() === normalizedName.toLowerCase(),
+      set.id !== excludedSetId && normalizeSetName(set.name).toLowerCase() === comparisonName,
   );
 
   if (duplicate) {
@@ -53,7 +53,7 @@ function withUpdatedElements(diagram: VennDiagram, elements: VennElement[]): Ven
 }
 
 function requireSet(diagram: VennDiagram, setId: string): VennSet {
-  const set = diagram.sets.find((currentSet) => currentSet.id === setId);
+  const set = diagram.sets.find((current) => current.id === setId);
 
   if (!set) {
     throw new Error(`No existe el conjunto "${setId}".`);
@@ -63,7 +63,7 @@ function requireSet(diagram: VennDiagram, setId: string): VennSet {
 }
 
 function requireElement(diagram: VennDiagram, elementId: string): VennElement {
-  const element = diagram.elements.find((currentElement) => currentElement.id === elementId);
+  const element = diagram.elements.find((current) => current.id === elementId);
 
   if (!element) {
     throw new Error(`No existe el elemento "${elementId}".`);
@@ -72,10 +72,12 @@ function requireElement(diagram: VennDiagram, elementId: string): VennElement {
   return element;
 }
 
-function validateSetMemberships(diagram: VennDiagram, setIds: string[]): string[] {
+function validateSetMemberships(diagram: VennDiagram, setIds: readonly string[]): string[] {
   const uniqueSetIds = [...new Set(setIds)];
 
-  uniqueSetIds.forEach((setId) => requireSet(diagram, setId));
+  for (const setId of uniqueSetIds) {
+    requireSet(diagram, setId);
+  }
 
   return uniqueSetIds;
 }
@@ -85,12 +87,24 @@ export function addSet(diagram: VennDiagram, set: VennSet): VennDiagram {
     throw new Error(`Un diagrama puede tener como máximo ${MAX_SETS} conjuntos.`);
   }
 
+  if (diagram.sets.some((current) => current.id === set.id)) {
+    throw new Error(`Ya existe el conjunto "${set.id}".`);
+  }
+
   const name = requireUniqueSetName(diagram, set.name);
-  const nextSets = [...diagram.sets, { ...set, name }];
+  const sets = [
+    ...diagram.sets,
+    {
+      ...set,
+      name,
+      position: { ...set.position },
+    },
+  ];
 
-  const arrangedSets = nextSets.length === 4 ? createFourSetEllipseLayout(nextSets) : nextSets;
-
-  return withUpdatedSets(diagram, arrangedSets);
+  return withUpdatedSets(
+    diagram,
+    sets.length === MAX_SETS ? createFourSetEllipseLayout(sets) : sets,
+  );
 }
 
 export function renameSet(diagram: VennDiagram, setId: string, name: string): VennDiagram {
@@ -103,30 +117,20 @@ export function renameSet(diagram: VennDiagram, setId: string, name: string): Ve
 
   return withUpdatedSets(
     diagram,
-    diagram.sets.map((set) =>
-      set.id === setId
-        ? {
-            ...set,
-            name: normalizedName,
-          }
-        : set,
-    ),
+    diagram.sets.map((set) => (set.id === setId ? { ...set, name: normalizedName } : set)),
   );
 }
 
 export function moveSet(diagram: VennDiagram, setId: string, position: Point): VennDiagram {
-  requireSet(diagram, setId);
+  const currentSet = requireSet(diagram, setId);
+
+  if (currentSet.position.x === position.x && currentSet.position.y === position.y) {
+    return diagram;
+  }
 
   return withUpdatedSets(
     diagram,
-    diagram.sets.map((set) =>
-      set.id === setId
-        ? {
-            ...set,
-            position: { ...position },
-          }
-        : set,
-    ),
+    diagram.sets.map((set) => (set.id === setId ? { ...set, position: { ...position } } : set)),
   );
 }
 
@@ -138,53 +142,51 @@ export function removeSet(diagram: VennDiagram, setId: string): VennDiagram {
   requireSet(diagram, setId);
 
   const remainingSets = diagram.sets.filter((set) => set.id !== setId);
-  const nextSets = diagram.sets.length === 4 ? createCircleSetLayout(remainingSets) : remainingSets;
+  const sets =
+    diagram.sets.length === MAX_SETS ? createCircleSetLayout(remainingSets) : remainingSets;
 
-  const elements = diagram.elements.map((element) => ({
-    ...element,
-    setIds: element.setIds.filter((elementSetId) => elementSetId !== setId),
-  }));
+  const elements = diagram.elements.map((element) =>
+    element.setIds.includes(setId)
+      ? {
+          ...element,
+          setIds: element.setIds.filter((id) => id !== setId),
+        }
+      : element,
+  );
 
   return {
-    ...withUpdatedSets(diagram, nextSets),
+    ...withUpdatedSets(diagram, sets),
     elements,
   };
 }
 
 export function addElement(diagram: VennDiagram, element: VennElement): VennDiagram {
-  if (diagram.elements.some((currentElement) => currentElement.id === element.id)) {
+  if (diagram.elements.some((current) => current.id === element.id)) {
     throw new Error(`Ya existe el elemento "${element.id}".`);
   }
 
   const setIds = validateSetMemberships(diagram, element.setIds);
 
-  return withUpdatedElements(diagram, [
-    ...diagram.elements,
-    {
-      ...element,
-      setIds,
-    },
-  ]);
+  return withUpdatedElements(diagram, [...diagram.elements, { ...element, setIds }]);
 }
 
 export function renameElement(diagram: VennDiagram, elementId: string, label: string): VennDiagram {
-  const trimmedLabel = label.trim();
+  const normalizedLabel = label.trim();
 
-  if (!trimmedLabel) {
+  if (!normalizedLabel) {
     throw new Error("El elemento debe tener un nombre.");
   }
 
-  requireElement(diagram, elementId);
+  const currentElement = requireElement(diagram, elementId);
+
+  if (currentElement.label === normalizedLabel) {
+    return diagram;
+  }
 
   return withUpdatedElements(
     diagram,
     diagram.elements.map((element) =>
-      element.id === elementId
-        ? {
-            ...element,
-            label: trimmedLabel,
-          }
-        : element,
+      element.id === elementId ? { ...element, label: normalizedLabel } : element,
     ),
   );
 }
@@ -194,19 +196,20 @@ export function setElementMembership(
   elementId: string,
   setIds: string[],
 ): VennDiagram {
-  requireElement(diagram, elementId);
-
+  const currentElement = requireElement(diagram, elementId);
   const validatedSetIds = validateSetMemberships(diagram, setIds);
+
+  if (
+    currentElement.setIds.length === validatedSetIds.length &&
+    currentElement.setIds.every((setId, index) => setId === validatedSetIds[index])
+  ) {
+    return diagram;
+  }
 
   return withUpdatedElements(
     diagram,
     diagram.elements.map((element) =>
-      element.id === elementId
-        ? {
-            ...element,
-            setIds: validatedSetIds,
-          }
-        : element,
+      element.id === elementId ? { ...element, setIds: validatedSetIds } : element,
     ),
   );
 }

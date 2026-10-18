@@ -4,13 +4,12 @@ import { createInitialDiagram, createVennSet } from "@/domain/venn/factories";
 import { addSet } from "@/domain/venn/operations";
 import { getRegionLabel, getVennRegions } from "@/domain/venn/regions";
 
-describe("Venn regions", () => {
-  it("creates four regions for two sets", () => {
+describe("Regiones de Venn", () => {
+  it("genera las cuatro regiones de un diagrama con dos conjuntos", () => {
     const diagram = createInitialDiagram();
 
     const regions = getVennRegions(diagram);
 
-    expect(regions).toHaveLength(4);
     expect(regions.map((region) => region.id)).toEqual([
       "outside",
       "region:set-a",
@@ -19,22 +18,28 @@ describe("Venn regions", () => {
     ]);
   });
 
-  it("creates eight regions for three sets", () => {
-    const setC = createVennSet("C", { x: 420, y: 450 });
-    const diagram = addSet(createInitialDiagram(), setC);
+  it("genera ocho regiones para tres conjuntos e incluye su intersección completa", () => {
+    const set = createVennSet("C", { x: 420, y: 450 });
+    const diagram = addSet(createInitialDiagram(), set);
 
     const regions = getVennRegions(diagram);
 
     expect(regions).toHaveLength(8);
-    expect(regions.at(-1)?.setIds).toEqual(["set-a", "set-b", setC.id]);
+    expect(regions.at(-1)?.setIds).toEqual(["set-a", "set-b", set.id]);
   });
 
-  it("creates readable labels for regions", () => {
+  it.each([
+    ["outside", "Exterior"],
+    ["region:set-a", "Solo A"],
+    ["region:set-a:set-b", "A ∩ B"],
+  ])("asigna a la región %s la etiqueta %s", (regionId, expectedLabel) => {
     const diagram = createInitialDiagram();
-    const regions = getVennRegions(diagram);
+    const region = getVennRegions(diagram).find((current) => current.id === regionId);
 
-    expect(getRegionLabel(diagram, regions[0]!)).toBe("Exterior");
-    expect(getRegionLabel(diagram, regions[1]!)).toBe("Solo A");
-    expect(getRegionLabel(diagram, regions[3]!)).toBe("A ∩ B");
+    if (!region) {
+      throw new Error(`No se encontró la región "${regionId}".`);
+    }
+
+    expect(getRegionLabel(diagram, region)).toBe(expectedLabel);
   });
 });

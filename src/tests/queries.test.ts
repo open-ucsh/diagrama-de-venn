@@ -5,23 +5,25 @@ import { addElement } from "@/domain/venn/operations";
 import { getElementsInRegion, getRegionForElement } from "@/domain/venn/queries";
 import { getVennRegions } from "@/domain/venn/regions";
 
-describe("Venn queries", () => {
-  it("gets the elements that belong to a region", () => {
-    const diagramWithElements = [
-      createVennElement("Ana", ["set-a"]),
-      createVennElement("Bruno", ["set-a", "set-b"]),
-      createVennElement("Carla", []),
-    ].reduce(addElement, createInitialDiagram());
+describe("Consultas sobre diagramas de Venn", () => {
+  it("devuelve únicamente los elementos de la región solicitada", () => {
+    const ana = createVennElement("Ana", ["set-a"]);
+    const bruno = createVennElement("Bruno", ["set-a", "set-b"]);
+    const carla = createVennElement("Carla", []);
+    const diagram = [ana, bruno, carla].reduce(
+      (currentDiagram, element) => addElement(currentDiagram, element),
+      createInitialDiagram(),
+    );
+    const region = getVennRegions(diagram).find((current) => current.id === "region:set-a");
 
-    const regions = getVennRegions(diagramWithElements);
-    const onlyARegion = regions.find((region) => region.id === "region:set-a")!;
+    if (!region) {
+      throw new Error('No se encontró la región "Solo A".');
+    }
 
-    expect(getElementsInRegion(diagramWithElements, onlyARegion)).toEqual([
-      expect.objectContaining({ label: "Ana" }),
-    ]);
+    expect(getElementsInRegion(diagram, region)).toEqual([ana]);
   });
 
-  it("gets the intersection region of an element", () => {
+  it("identifica la región de intersección de un elemento", () => {
     const element = createVennElement("Bruno", ["set-a", "set-b"]);
     const diagram = addElement(createInitialDiagram(), element);
 
@@ -30,7 +32,7 @@ describe("Venn queries", () => {
     expect(region.id).toBe("region:set-a:set-b");
   });
 
-  it("gets the exterior region of an element without memberships", () => {
+  it("asigna la región exterior a un elemento sin pertenencias", () => {
     const element = createVennElement("Carla", []);
     const diagram = addElement(createInitialDiagram(), element);
 
