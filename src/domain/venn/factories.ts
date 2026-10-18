@@ -1,10 +1,10 @@
-import type { Point, VennDiagram, VennElement, VennSet } from "./models";
+import type { Point, VennDiagram, VennElement, VennSet } from "@/domain/venn/models";
 
 export const DEFAULT_SET_RADIUS = 160;
 
 export const DEFAULT_SET_COLORS = ["#244F80", "#D5A52A", "#278B76", "#55A8B8"] as const;
 
-const CIRCLE_LAYOUTS: Record<number, Point[]> = {
+const CIRCLE_LAYOUTS: Readonly<Partial<Record<number, readonly Readonly<Point>[]>>> = {
   1: [{ x: 450, y: 300 }],
   2: [
     { x: 370, y: 300 },
@@ -44,16 +44,17 @@ const FOUR_SET_ELLIPSE_LAYOUT = [
   },
 ] as const;
 
-export function createVennSet(
+function createCircleSet(
+  id: string,
   name: string,
   position: Point,
-  radius: number = DEFAULT_SET_RADIUS,
-  color: string = DEFAULT_SET_COLORS[0],
+  radius: number,
+  color: string,
 ): VennSet {
   return {
-    id: crypto.randomUUID(),
+    id,
     name,
-    position,
+    position: { ...position },
     radius,
     shape: "circle",
     radiusX: radius,
@@ -64,23 +65,21 @@ export function createVennSet(
   };
 }
 
+export function createVennSet(
+  name: string,
+  position: Point,
+  radius = DEFAULT_SET_RADIUS,
+  color: string = DEFAULT_SET_COLORS[0],
+): VennSet {
+  return createCircleSet(crypto.randomUUID(), name, position, radius, color);
+}
+
 export function createCircleSetLayout(sets: VennSet[]): VennSet[] {
   const positions = CIRCLE_LAYOUTS[sets.length];
 
-  if (!positions) {
-    return sets.map((set) => ({
-      ...set,
-      shape: "circle",
-      radius: DEFAULT_SET_RADIUS,
-      radiusX: DEFAULT_SET_RADIUS,
-      radiusY: DEFAULT_SET_RADIUS,
-      rotation: 0,
-    }));
-  }
-
   return sets.map((set, index) => ({
     ...set,
-    position: positions[index] ?? set.position,
+    position: { ...(positions?.[index] ?? set.position) },
     shape: "circle",
     radius: DEFAULT_SET_RADIUS,
     radiusX: DEFAULT_SET_RADIUS,
@@ -90,12 +89,16 @@ export function createCircleSetLayout(sets: VennSet[]): VennSet[] {
 }
 
 export function createFourSetEllipseLayout(sets: VennSet[]): VennSet[] {
-  if (sets.length !== 4) return sets;
+  if (sets.length !== FOUR_SET_ELLIPSE_LAYOUT.length) {
+    return sets;
+  }
 
   return sets.map((set, index) => {
     const layout = FOUR_SET_ELLIPSE_LAYOUT[index];
 
-    if (!layout) return set;
+    if (!layout) {
+      return set;
+    }
 
     return {
       ...set,
@@ -110,48 +113,21 @@ export function createFourSetEllipseLayout(sets: VennSet[]): VennSet[] {
 }
 
 export function createVennElement(label: string, setIds: string[]): VennElement {
-  const trimmedLabel = label.trim();
+  const normalizedLabel = label.trim();
 
-  if (!trimmedLabel) {
+  if (!normalizedLabel) {
     throw new Error("El elemento debe tener un nombre.");
   }
 
   return {
     id: crypto.randomUUID(),
-    label: trimmedLabel,
+    label: normalizedLabel,
     setIds: [...new Set(setIds)],
   };
 }
 
 export function createInitialDiagram(name = "Diagrama de Venn"): VennDiagram {
   const now = new Date().toISOString();
-
-  const initialSets: VennSet[] = [
-    {
-      id: "set-a",
-      name: "A",
-      position: { x: 370, y: 300 },
-      radius: DEFAULT_SET_RADIUS,
-      shape: "circle",
-      radiusX: DEFAULT_SET_RADIUS,
-      radiusY: DEFAULT_SET_RADIUS,
-      rotation: 0,
-      color: DEFAULT_SET_COLORS[0],
-      hidden: false,
-    },
-    {
-      id: "set-b",
-      name: "B",
-      position: { x: 530, y: 300 },
-      radius: DEFAULT_SET_RADIUS,
-      shape: "circle",
-      radiusX: DEFAULT_SET_RADIUS,
-      radiusY: DEFAULT_SET_RADIUS,
-      rotation: 0,
-      color: DEFAULT_SET_COLORS[1],
-      hidden: false,
-    },
-  ];
 
   return {
     id: crypto.randomUUID(),
@@ -160,7 +136,10 @@ export function createInitialDiagram(name = "Diagrama de Venn"): VennDiagram {
       createdAt: now,
       updatedAt: now,
     },
-    sets: initialSets,
+    sets: [
+      createCircleSet("set-a", "A", { x: 370, y: 300 }, DEFAULT_SET_RADIUS, DEFAULT_SET_COLORS[0]),
+      createCircleSet("set-b", "B", { x: 530, y: 300 }, DEFAULT_SET_RADIUS, DEFAULT_SET_COLORS[1]),
+    ],
     elements: [],
   };
 }

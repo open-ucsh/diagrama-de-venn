@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { createInitialDiagram, createVennSet } from "@/domain/venn/factories";
 import { MAX_SETS, addSet, moveSet, removeSet, renameSet } from "@/domain/venn/operations";
 
-describe("Venn set operations", () => {
-  it("adds a set without changing the original diagram", () => {
+describe("Operaciones sobre conjuntos de Venn", () => {
+  it("agrega un conjunto sin modificar el diagrama original", () => {
     const diagram = createInitialDiagram();
     const set = createVennSet("C", { x: 420, y: 450 });
 
@@ -15,39 +15,28 @@ describe("Venn set operations", () => {
     expect(updatedDiagram.sets.at(-1)).toEqual(set);
   });
 
-  it("does not allow more than four sets", () => {
-    const diagram = createInitialDiagram();
-
+  it("permite cuatro conjuntos y rechaza agregar un quinto", () => {
     const diagramWithThreeSets = addSet(
-      diagram,
-      createVennSet("C", {
-        x: 450,
-        y: 420,
-      }),
+      createInitialDiagram(),
+      createVennSet("C", { x: 450, y: 420 }),
     );
-
     const diagramWithFourSets = addSet(
       diagramWithThreeSets,
-      createVennSet("D", {
-        x: 450,
-        y: 300,
-      }),
+      createVennSet("D", { x: 450, y: 300 }),
     );
+    const fifthSet = createVennSet("E", { x: 450, y: 300 });
 
+    expect(diagramWithFourSets.sets).toHaveLength(4);
     expect(diagramWithFourSets.sets).toHaveLength(MAX_SETS);
 
-    expect(() =>
-      addSet(
-        diagramWithFourSets,
-        createVennSet("E", {
-          x: 450,
-          y: 300,
-        }),
-      ),
-    ).toThrow(`como máximo ${MAX_SETS} conjuntos`);
+    expect(() => addSet(diagramWithFourSets, fifthSet)).toThrow(
+      `como máximo ${MAX_SETS} conjuntos`,
+    );
+
+    expect(diagramWithFourSets.sets).toHaveLength(4);
   });
 
-  it("renames a set without changing the original diagram", () => {
+  it("renombra un conjunto sin modificar el diagrama original", () => {
     const diagram = createInitialDiagram();
 
     const updatedDiagram = renameSet(diagram, "set-a", "Estudiantes");
@@ -56,17 +45,22 @@ describe("Venn set operations", () => {
     expect(updatedDiagram.sets[0]?.name).toBe("Estudiantes");
   });
 
-  it("moves a set to a new position", () => {
+  it("mueve un conjunto sin modificar su posición original", () => {
     const diagram = createInitialDiagram();
+    const originalPosition = { ...diagram.sets[1]?.position };
+    const position = { x: 600, y: 420 };
 
-    const updatedDiagram = moveSet(diagram, "set-b", { x: 600, y: 420 });
+    const updatedDiagram = moveSet(diagram, "set-b", position);
 
-    expect(updatedDiagram.sets[1]?.position).toEqual({ x: 600, y: 420 });
+    expect(updatedDiagram.sets[1]?.position).toEqual(position);
+    expect(diagram.sets[1]?.position).toEqual(originalPosition);
   });
 
-  it("does not allow removing the last remaining set", () => {
+  it("rechaza eliminar el último conjunto del diagrama", () => {
     const diagram = removeSet(createInitialDiagram(), "set-b");
 
+    expect(diagram.sets).toHaveLength(1);
     expect(() => removeSet(diagram, "set-a")).toThrow("al menos 1 conjunto");
+    expect(diagram.sets).toHaveLength(1);
   });
 });

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createInitialDiagram } from "@/domain/venn/factories";
 import { createRecoverableStorage, useStorageRecovery } from "@/state/venn-storage";
 
+const STORAGE_KEY = "venn-editor";
+
 function createTestStorage(): Storage {
   const values = new Map<string, string>();
 
@@ -10,86 +12,111 @@ function createTestStorage(): Storage {
     get length() {
       return values.size;
     },
-    clear: () => values.clear(),
-    getItem: (key) => values.get(key) ?? null,
-    key: (index) => [...values.keys()][index] ?? null,
-    removeItem: (key) => {
+
+    clear() {
+      values.clear();
+    },
+
+    getItem(key) {
+      return values.get(key) ?? null;
+    },
+
+    key(index) {
+      return Array.from(values.keys())[index] ?? null;
+    },
+
+    removeItem(key) {
       values.delete(key);
     },
-    setItem: (key, value) => {
+
+    setItem(key, value) {
       values.set(key, value);
     },
   };
 }
 
-describe("Venn storage recovery", () => {
+describe("Recuperación del almacenamiento de Venn", () => {
   beforeEach(() => {
     useStorageRecovery.getState().resolve();
   });
 
-  it("rejects invalid JSON without deleting or overwriting it", () => {
+  it("rechaza un JSON inválido sin eliminarlo ni sobrescribirlo", () => {
     const storage = createTestStorage();
     const recoverable = createRecoverableStorage(storage);
-    storage.setItem("venn-editor", "{broken");
+    const invalidJson = "{broken";
 
-    expect(recoverable.getItem("venn-editor")).toBeNull();
+    storage.setItem(STORAGE_KEY, invalidJson);
+
+    expect(recoverable.getItem(STORAGE_KEY)).toBeNull();
     expect(useStorageRecovery.getState().issue).toBe("invalid-json");
+    expect(storage.getItem(STORAGE_KEY)).toBe(invalidJson);
 
-    recoverable.setItem("venn-editor", "replacement");
+    recoverable.setItem(STORAGE_KEY, "replacement");
 
-    expect(storage.getItem("venn-editor")).toBe("{broken");
+    expect(storage.getItem(STORAGE_KEY)).toBe(invalidJson);
   });
 
-  it("rejects an unknown version even when the diagram is valid", () => {
+  it("rechaza una versión desconocida aunque el diagrama sea válido", () => {
     const storage = createTestStorage();
     const raw = JSON.stringify({
       version: 99,
       state: { diagram: createInitialDiagram() },
     });
 
-    storage.setItem("venn-editor", raw);
+    storage.setItem(STORAGE_KEY, raw);
 
-    expect(createRecoverableStorage(storage).getItem("venn-editor")).toBeNull();
+    const result = createRecoverableStorage(storage).getItem(STORAGE_KEY);
+
+    expect(result).toBeNull();
     expect(useStorageRecovery.getState().issue).toBe("unsupported-version");
-    expect(storage.getItem("venn-editor")).toBe(raw);
+    expect(storage.getItem(STORAGE_KEY)).toBe(raw);
   });
 
   it.each([
     { version: 1 },
     { version: 1, state: {} },
     { version: 1, state: { diagram: { id: "incomplete" } } },
-  ])("rejects incomplete required data: %j", (value) => {
+  ])("rechaza datos obligatorios incompletos: %j", (value) => {
     const storage = createTestStorage();
     const raw = JSON.stringify(value);
-    storage.setItem("venn-editor", raw);
 
-    expect(createRecoverableStorage(storage).getItem("venn-editor")).toBeNull();
+    storage.setItem(STORAGE_KEY, raw);
+
+    const result = createRecoverableStorage(storage).getItem(STORAGE_KEY);
+
+    expect(result).toBeNull();
     expect(useStorageRecovery.getState().issue).toBe("invalid-data");
-    expect(storage.getItem("venn-editor")).toBe(raw);
+    expect(storage.getItem(STORAGE_KEY)).toBe(raw);
   });
 
-  it("preserves a valid diagram", () => {
+  it("conserva un diagrama válido", () => {
     const storage = createTestStorage();
     const diagram = createInitialDiagram("Encuesta");
-
-    storage.setItem("venn-editor", JSON.stringify({ version: 1, state: { diagram } }));
-
-    const result = createRecoverableStorage(storage).getItem("venn-editor");
-
-    expect(typeof result).toBe("string");
-    expect(JSON.parse(result as string)).toEqual({
+    const persistedState = {
       version: 1,
       state: { diagram },
-    });
+    };
+    const raw = JSON.stringify(persistedState);
+
+    storage.setItem(STORAGE_KEY, raw);
+
+    const result = createRecoverableStorage(storage).getItem(STORAGE_KEY);
+
+    if (typeof result !== "string") {
+      throw new Error("No se recuperó el diagrama válido.");
+    }
+
+    expect(JSON.parse(result)).toEqual(persistedState);
+    expect(storage.getItem(STORAGE_KEY)).toBe(raw);
     expect(useStorageRecovery.getState().issue).toBeNull();
   });
 
-  it("recovers missing optional fields without discarding the diagram", () => {
+  it("recupera los campos opcionales ausentes sin descartar el diagrama", () => {
     const storage = createTestStorage();
     const diagram = createInitialDiagram("Recuperable");
 
     storage.setItem(
-      "venn-editor",
+      STORAGE_KEY,
       JSON.stringify({
         version: 1,
         state: {
@@ -106,44 +133,73 @@ describe("Venn storage recovery", () => {
       }),
     );
 
-    const result = createRecoverableStorage(storage).getItem("venn-editor");
-    const recovered = JSON.parse(result as string);
+    const result = createRecoverableStorage(storage).getItem(STORAGE_KEY);
 
-    expect(recovered.state.diagram.metadata.name).toBe("Recuperable");
-    expect(recovered.state.diagram.sets[0]).toMatchObject({
-      id: "set-a",
-      shape: "circle",
-      radiusX: 160,
-      radiusY: 160,
-      rotation: 0,
-      hidden: false,
+    if (typeof result !== "string") {
+      throw new Error("No se recuperó el diagrama con campos opcionales ausentes.");
+    }
+
+    expect(JSON.parse(result)).toMatchObject({
+      version: 1,
+      state: {
+        diagram: {
+          metadata: { name: "Recuperable" },
+          sets: [
+            expect.objectContaining({
+              id: "set-a",
+              shape: "circle",
+              radiusX: 160,
+              radiusY: 160,
+              rotation: 0,
+              hidden: false,
+            }),
+            expect.objectContaining({
+              id: "set-b",
+            }),
+          ],
+        },
+      },
     });
+
     expect(useStorageRecovery.getState().issue).toBeNull();
   });
 
-  it("ignores persisted fields that could replace store actions", () => {
+  it("descarta campos persistidos que podrían reemplazar acciones del estado", () => {
     const storage = createTestStorage();
     const diagram = createInitialDiagram();
 
     storage.setItem(
-      "venn-editor",
+      STORAGE_KEY,
       JSON.stringify({
         version: 1,
-        state: { diagram, resetDiagram: null, past: "invalid" },
+        state: {
+          diagram,
+          resetDiagram: null,
+          past: "invalid",
+        },
       }),
     );
 
-    const result = createRecoverableStorage(storage).getItem("venn-editor");
+    const result = createRecoverableStorage(storage).getItem(STORAGE_KEY);
 
-    expect(JSON.parse(result as string).state).toEqual({ diagram });
+    if (typeof result !== "string") {
+      throw new Error("No se recuperó el diagrama.");
+    }
+
+    expect(JSON.parse(result)).toEqual({
+      version: 1,
+      state: { diagram },
+    });
   });
 
-  it("allows saving a replacement after recovery is resolved", () => {
+  it("permite guardar un reemplazo después de resolver la recuperación", () => {
     const storage = createTestStorage();
     const recoverable = createRecoverableStorage(storage);
 
-    storage.setItem("venn-editor", "{broken");
-    recoverable.getItem("venn-editor");
+    storage.setItem(STORAGE_KEY, "{broken");
+
+    expect(recoverable.getItem(STORAGE_KEY)).toBeNull();
+    expect(useStorageRecovery.getState().issue).toBe("invalid-json");
 
     useStorageRecovery.getState().resolve();
 
@@ -152,29 +208,36 @@ describe("Venn storage recovery", () => {
       state: { diagram: createInitialDiagram() },
     });
 
-    recoverable.setItem("venn-editor", replacement);
+    recoverable.setItem(STORAGE_KEY, replacement);
 
-    expect(storage.getItem("venn-editor")).toBe(replacement);
-  });
-
-  it("allows explicitly deleting invalid data", () => {
-    const storage = createTestStorage();
-    const recoverable = createRecoverableStorage(storage);
-
-    storage.setItem("venn-editor", "{broken");
-    recoverable.getItem("venn-editor");
-    recoverable.removeItem("venn-editor");
-
-    expect(storage.getItem("venn-editor")).toBeNull();
-
-    useStorageRecovery.getState().resolve();
+    expect(storage.getItem(STORAGE_KEY)).toBe(replacement);
     expect(useStorageRecovery.getState().issue).toBeNull();
   });
 
-  it("does not report an error when no diagram is stored", () => {
+  it("permite eliminar explícitamente los datos inválidos", () => {
+    const storage = createTestStorage();
+    const recoverable = createRecoverableStorage(storage);
+
+    storage.setItem(STORAGE_KEY, "{broken");
+
+    expect(recoverable.getItem(STORAGE_KEY)).toBeNull();
+    expect(useStorageRecovery.getState().issue).toBe("invalid-json");
+
+    recoverable.removeItem(STORAGE_KEY);
+
+    expect(storage.getItem(STORAGE_KEY)).toBeNull();
+
+    useStorageRecovery.getState().resolve();
+
+    expect(useStorageRecovery.getState().issue).toBeNull();
+  });
+
+  it("no informa un error cuando no hay un diagrama guardado", () => {
     const storage = createTestStorage();
 
-    expect(createRecoverableStorage(storage).getItem("venn-editor")).toBeNull();
+    const result = createRecoverableStorage(storage).getItem(STORAGE_KEY);
+
+    expect(result).toBeNull();
     expect(useStorageRecovery.getState().issue).toBeNull();
   });
 });

@@ -24,48 +24,53 @@ export interface VennHistoryState extends VennSnapshot {
   future: VennSnapshot[];
 }
 
-function createSnapshot(state: VennHistoryState): VennSnapshot {
+function createSnapshot(state: VennSnapshot): VennSnapshot {
   return {
+    // Las operaciones del dominio deben actualizar el diagrama de forma inmutable.
     diagram: state.diagram,
-    selection: state.selection,
+    selection: state.selection ? { ...state.selection } : null,
     selectedRegionIds: [...state.selectedRegionIds],
   };
+}
+
+function hasSnapshotChanges(state: VennSnapshot, changes: Partial<VennSnapshot>): boolean {
+  const next = { ...state, ...changes };
+
+  return (
+    state.diagram !== next.diagram ||
+    state.selection?.id !== next.selection?.id ||
+    state.selection?.kind !== next.selection?.kind ||
+    state.selectedRegionIds.length !== next.selectedRegionIds.length ||
+    state.selectedRegionIds.some((regionId, index) => regionId !== next.selectedRegionIds[index])
+  );
 }
 
 export function recordHistory(
   state: VennHistoryState,
   changes: Partial<VennSnapshot>,
 ): Partial<VennHistoryState> {
-  const snapshot = createSnapshot(state);
+  if (!hasSnapshotChanges(state, changes)) {
+    return state;
+  }
 
   return {
     ...changes,
-
-    past: [...state.past, snapshot].slice(-MAX_HISTORY_LENGTH),
-
+    past: [...state.past, createSnapshot(state)].slice(-MAX_HISTORY_LENGTH),
     future: [],
   };
 }
 
 export function undoHistory(state: VennHistoryState): Partial<VennHistoryState> {
-  const previous = state.past[state.past.length - 1];
+  const previous = state.past.at(-1);
 
   if (!previous) {
     return state;
   }
 
-  const current = createSnapshot(state);
-
   return {
-    diagram: previous.diagram,
-
-    selection: previous.selection,
-
-    selectedRegionIds: [...previous.selectedRegionIds],
-
+    ...createSnapshot(previous),
     past: state.past.slice(0, -1),
-
-    future: [current, ...state.future].slice(0, MAX_HISTORY_LENGTH),
+    future: [createSnapshot(state), ...state.future].slice(0, MAX_HISTORY_LENGTH),
   };
 }
 
@@ -76,16 +81,9 @@ export function redoHistory(state: VennHistoryState): Partial<VennHistoryState> 
     return state;
   }
 
-  const current = createSnapshot(state);
-
   return {
-    diagram: next.diagram,
-    selection: next.selection,
-
-    selectedRegionIds: [...next.selectedRegionIds],
-
-    past: [...state.past, current].slice(-MAX_HISTORY_LENGTH),
-
+    ...createSnapshot(next),
+    past: [...state.past, createSnapshot(state)].slice(-MAX_HISTORY_LENGTH),
     future: state.future.slice(1),
   };
 }

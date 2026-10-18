@@ -1,6 +1,5 @@
-import type { VennDiagram } from "../models";
-
-import { createRegionId } from "../regions";
+import type { VennDiagram } from "@/domain/venn/models";
+import { getVennRegions } from "@/domain/venn/regions";
 
 export function getUniverseMask(setCount: number): number {
   const regionCount = 2 ** setCount;
@@ -10,12 +9,11 @@ export function getUniverseMask(setCount: number): number {
 
 export function getSetMask(setIndex: number, setCount: number): number {
   const regionCount = 2 ** setCount;
+  const membershipBit = 1 << setIndex;
   let mask = 0;
 
   for (let combination = 0; combination < regionCount; combination += 1) {
-    const belongsToSet = (combination & (1 << setIndex)) !== 0;
-
-    if (belongsToSet) {
+    if ((combination & membershipBit) !== 0) {
       mask |= 1 << combination;
     }
   }
@@ -24,42 +22,24 @@ export function getSetMask(setIndex: number, setCount: number): number {
 }
 
 export function getSelectedMask(diagram: VennDiagram, selectedRegionIds: string[]): number {
-  const selectedIds = new Set(selectedRegionIds);
-  const regionCount = 2 ** diagram.sets.length;
-  let mask = 0;
-
-  for (let combination = 0; combination < regionCount; combination += 1) {
-    const setIds = diagram.sets
-      .filter((_, index) => (combination & (1 << index)) !== 0)
-      .map((set) => set.id);
-
-    const regionId = createRegionId(setIds);
-
-    if (selectedIds.has(regionId)) {
-      mask |= 1 << combination;
-    }
+  if (selectedRegionIds.length === 0) {
+    return 0;
   }
 
-  return mask;
+  const selectedIds = new Set(selectedRegionIds);
+
+  return getVennRegions(diagram).reduce(
+    (mask, region, index) => (selectedIds.has(region.id) ? mask | (1 << index) : mask),
+    0,
+  );
 }
 
 export function getRegionIdsFromMask(diagram: VennDiagram, mask: number): string[] {
-  const regionCount = 2 ** diagram.sets.length;
-  const regionIds: string[] = [];
-
-  for (let combination = 0; combination < regionCount; combination += 1) {
-    const isSelected = (mask & (1 << combination)) !== 0;
-
-    if (!isSelected) {
-      continue;
-    }
-
-    const setIds = diagram.sets
-      .filter((_, index) => (combination & (1 << index)) !== 0)
-      .map((set) => set.id);
-
-    regionIds.push(createRegionId(setIds));
+  if (mask === 0) {
+    return [];
   }
 
-  return regionIds;
+  return getVennRegions(diagram)
+    .filter((_, index) => (mask & (1 << index)) !== 0)
+    .map((region) => region.id);
 }

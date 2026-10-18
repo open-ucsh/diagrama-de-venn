@@ -1,6 +1,9 @@
-import type { VennDiagram, VennElement, VennSet } from "./models";
+import type { VennDiagram, VennElement, VennSet } from "@/domain/venn/models";
+import { getVennRegions } from "@/domain/venn/regions";
 
-import { getVennRegions } from "./regions";
+const PROJECT_VERSION = 1;
+const MINIMUM_SET_COUNT = 1;
+const MAXIMUM_SET_COUNT = 4;
 
 export interface VennProjectFile {
   version: 1;
@@ -9,11 +12,15 @@ export interface VennProjectFile {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item: unknown) => typeof item === "string");
 }
 
 function parseSet(value: unknown): VennSet {
@@ -45,6 +52,14 @@ function parseSet(value: unknown): VennSet {
     throw new Error("El proyecto contiene un color inválido.");
   }
 
+  const radiusX = isFiniteNumber(value.radiusX) ? value.radiusX : value.radius;
+
+  const radiusY = isFiniteNumber(value.radiusY) ? value.radiusY : value.radius;
+
+  if (radiusX <= 0 || radiusY <= 0) {
+    throw new Error("El proyecto contiene datos inválidos en un conjunto.");
+  }
+
   return {
     id: value.id,
     name: value.name,
@@ -53,28 +68,23 @@ function parseSet(value: unknown): VennSet {
       y: value.position.y,
     },
     radius: value.radius,
-
     shape: value.shape === "ellipse" ? "ellipse" : "circle",
-
-    radiusX: isFiniteNumber(value.radiusX) ? value.radiusX : value.radius,
-
-    radiusY: isFiniteNumber(value.radiusY) ? value.radiusY : value.radius,
-
+    radiusX,
+    radiusY,
     rotation: isFiniteNumber(value.rotation) ? value.rotation : 0,
-
-    color: typeof value.color === "string" ? value.color : undefined,
-
     hidden: typeof value.hidden === "boolean" ? value.hidden : false,
+    ...(typeof value.color === "string" ? { color: value.color } : {}),
   };
 }
 
-function parseElement(value: unknown, validSetIds: Set<string>): VennElement {
+function parseElement(value: unknown, validSetIds: ReadonlySet<string>): VennElement {
   if (
     !isRecord(value) ||
     typeof value.id !== "string" ||
     typeof value.label !== "string" ||
-    !Array.isArray(value.setIds) ||
-    !value.setIds.every((setId) => typeof setId === "string" && validSetIds.has(setId))
+    !value.label.trim() ||
+    !isStringArray(value.setIds) ||
+    !value.setIds.every((setId) => validSetIds.has(setId))
   ) {
     throw new Error("El proyecto contiene un elemento inválido.");
   }
@@ -82,7 +92,7 @@ function parseElement(value: unknown, validSetIds: Set<string>): VennElement {
   return {
     id: value.id,
     label: value.label,
-    setIds: [...new Set(value.setIds as string[])],
+    setIds: [...new Set(value.setIds)],
   };
 }
 
@@ -100,12 +110,11 @@ function parseDiagram(value: unknown): VennDiagram {
     throw new Error("El archivo no contiene un diagrama válido.");
   }
 
-  if (value.sets.length < 1 || value.sets.length > 4) {
+  if (value.sets.length < MINIMUM_SET_COUNT || value.sets.length > MAXIMUM_SET_COUNT) {
     throw new Error("El diagrama debe contener entre 1 y 4 conjuntos.");
   }
 
   const sets = value.sets.map(parseSet);
-
   const setIds = new Set(sets.map((set) => set.id));
 
   if (setIds.size !== sets.length) {
@@ -114,15 +123,17 @@ function parseDiagram(value: unknown): VennDiagram {
 
   const elements = value.elements.map((element) => parseElement(element, setIds));
 
+  if (new Set(elements.map((element) => element.id)).size !== elements.length) {
+    throw new Error("El proyecto contiene identificadores de elementos repetidos.");
+  }
+
   return {
     id: value.id,
-
     metadata: {
       name: value.metadata.name,
       createdAt: value.metadata.createdAt,
       updatedAt: value.metadata.updatedAt,
     },
-
     sets,
     elements,
   };
@@ -133,34 +144,31 @@ export function createProjectFile(
   selectedRegionIds: string[],
 ): VennProjectFile {
   return {
-    version: 1,
+    version: PROJECT_VERSION,
     diagram,
     selectedRegionIds: [...selectedRegionIds],
   };
 }
 
 export function parseProjectFile(value: unknown): VennProjectFile {
-  if (!isRecord(value) || value.version !== 1) {
+  if (!isRecord(value) || value.version !== PROJECT_VERSION) {
     throw new Error("La versión del proyecto no es compatible.");
   }
 
   const diagram = parseDiagram(value.diagram);
 
-  if (
-    !Array.isArray(value.selectedRegionIds) ||
-    !value.selectedRegionIds.every((regionId) => typeof regionId === "string")
-  ) {
+  if (!isStringArray(value.selectedRegionIds)) {
     throw new Error("La selección del proyecto es inválida.");
   }
 
   const validRegionIds = new Set(getVennRegions(diagram).map((region) => region.id));
 
-  const selectedRegionIds = [...new Set(value.selectedRegionIds as string[])].filter((regionId) =>
+  const selectedRegionIds = [...new Set(value.selectedRegionIds)].filter((regionId) =>
     validRegionIds.has(regionId),
   );
 
   return {
-    version: 1,
+    version: PROJECT_VERSION,
     diagram,
     selectedRegionIds,
   };

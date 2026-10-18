@@ -13,6 +13,8 @@
   --font-sans: Ubuntu, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/* Base */
+
 html,
 body,
 #root {
@@ -48,6 +50,7 @@ summary::-webkit-details-marker {
 .venn-workspace {
   display: flex;
   width: 100%;
+  height: 100vh;
   height: 100dvh;
   min-height: 0;
   flex-direction: column;
@@ -60,8 +63,8 @@ summary::-webkit-details-marker {
 }
 
 .venn-workspace__body {
-  display: grid;
   position: relative;
+  display: grid;
   min-width: 0;
   min-height: 0;
   flex: 1;
@@ -73,7 +76,7 @@ summary::-webkit-details-marker {
     "formula";
   gap: 0.75rem;
   padding: 0.75rem;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
   overflow-x: hidden;
   overflow-y: auto;
   background-color: #fbfcfe;
@@ -155,7 +158,7 @@ summary::-webkit-details-marker {
   stroke-linejoin: round;
 }
 
-/* Region selector */
+/* Selector de regiones */
 
 .venn-region-picker {
   position: absolute;
@@ -174,8 +177,6 @@ summary::-webkit-details-marker {
 .venn-region-picker > summary {
   display: flex;
   min-height: 2.5rem;
-  cursor: pointer;
-  list-style: none;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.85rem;
@@ -183,6 +184,8 @@ summary::-webkit-details-marker {
   color: var(--color-brand-primary);
   font-size: 0.8rem;
   font-weight: 600;
+  cursor: pointer;
+  list-style: none;
 }
 
 .venn-region-picker > summary::before {
@@ -209,12 +212,13 @@ summary::-webkit-details-marker {
 }
 
 .venn-region-picker ul {
+  max-height: min(35vh, 18rem);
   max-height: min(35dvh, 18rem);
   overscroll-behavior: contain;
 }
 
 .venn-region-picker li {
-  align-items: start;
+  align-items: flex-start;
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.35rem 0.5rem;
@@ -226,8 +230,8 @@ summary::-webkit-details-marker {
 }
 
 .venn-region-picker li button {
-  min-height: 2rem;
   width: 100%;
+  min-height: 2rem;
   font-weight: 500;
   text-decoration: none;
 }
@@ -242,7 +246,7 @@ summary::-webkit-details-marker {
   overflow-wrap: anywhere;
 }
 
-/* Sets panel */
+/* Panel de conjuntos */
 
 .venn-sets-panel__card {
   min-width: 0;
@@ -280,6 +284,7 @@ summary::-webkit-details-marker {
 }
 
 .venn-sets-panel__content {
+  max-height: 40vh;
   max-height: 40dvh;
   padding: 0.25rem 0.85rem 0.85rem;
   overflow-y: auto;
@@ -323,7 +328,7 @@ summary::-webkit-details-marker {
   font-weight: 500;
 }
 
-/* Formula dock */
+/* Barra de fórmulas */
 
 .venn-formula-bar {
   width: 100%;
@@ -388,7 +393,7 @@ summary::-webkit-details-marker {
   display: none;
 }
 
-/* History popup */
+/* Historial */
 
 .venn-formula-bar details > summary {
   height: 2.75rem;
@@ -409,6 +414,7 @@ summary::-webkit-details-marker {
 }
 
 .venn-formula-bar details > div > ol {
+  max-height: min(45vh, 22rem);
   max-height: min(45dvh, 22rem);
   overscroll-behavior: contain;
 }
@@ -419,7 +425,7 @@ summary::-webkit-details-marker {
   .venn-workspace__body {
     gap: 1rem;
     padding: 1rem;
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
   }
 
   .venn-workspace__formula {
@@ -431,7 +437,7 @@ summary::-webkit-details-marker {
   }
 
   .venn-formula-bar__actions {
-    justify-content: start;
+    justify-content: flex-start;
     gap: 0.35rem;
     padding: 0.4rem 0.75rem;
   }
@@ -443,7 +449,7 @@ summary::-webkit-details-marker {
   }
 }
 
-/* Desktop */
+/* Escritorio */
 
 @media (min-width: 1024px) {
   .venn-workspace__body {
@@ -452,9 +458,6 @@ summary::-webkit-details-marker {
     grid-template-areas:
       "sets canvas ."
       "formula formula formula";
-    gap: 1rem;
-    padding: 1rem;
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
   .venn-workspace__sets {
@@ -462,10 +465,6 @@ summary::-webkit-details-marker {
     overflow-y: auto;
     border-radius: 0.8rem;
     scrollbar-width: thin;
-  }
-
-  .venn-sets-panel__card {
-    overflow: hidden;
   }
 
   .venn-sets-panel__content {
@@ -491,10 +490,5 @@ summary::-webkit-details-marker {
     top: 1rem;
     right: 1rem;
     max-width: calc(100% - 2rem);
-  }
-
-  .venn-workspace__formula {
-    width: min(56rem, 100%);
-    justify-self: center;
   }
 }
