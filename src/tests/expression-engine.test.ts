@@ -10,6 +10,7 @@ class WorkerStub extends EventTarget {
   static instances: WorkerStub[] = [];
 
   readonly postMessage = vi.fn<(request: ExpressionWorkerRequest) => void>();
+
   readonly terminate = vi.fn();
 
   constructor() {
@@ -22,22 +23,7 @@ class WorkerStub extends EventTarget {
   }
 }
 
-const engines: ExpressionEngine[] = [];
-
-function createEngine() {
-  const engine = new ExpressionEngine(["A", "B"]);
-  engines.push(engine);
-
-  const worker = WorkerStub.instances.at(-1);
-
-  if (!worker) {
-    throw new Error("El worker no se creó.");
-  }
-
-  return { engine, worker };
-}
-
-function result(text: string): MinimumExpressionResult {
+function createResult(text: string): MinimumExpressionResult {
   return {
     text,
     operationCount: 0,
@@ -46,23 +32,43 @@ function result(text: string): MinimumExpressionResult {
   };
 }
 
-beforeEach(() => {
-  WorkerStub.instances = [];
-  vi.stubGlobal("Worker", WorkerStub);
-});
+describe("Motor de expresiones", () => {
+  const engines: ExpressionEngine[] = [];
 
-afterEach(() => {
-  for (const engine of engines) {
-    engine.dispose();
+  function createEngine() {
+    const engine = new ExpressionEngine(["A", "B"]);
+    engines.push(engine);
+
+    const worker = WorkerStub.instances.at(-1);
+
+    if (!worker) {
+      throw new Error("No se creó el worker.");
+    }
+
+    return { engine, worker };
   }
 
-  engines.length = 0;
-  vi.unstubAllGlobals();
-});
+  beforeEach(() => {
+    WorkerStub.instances = [];
+    vi.stubGlobal("Worker", WorkerStub);
+  });
 
-describe("⚙️ Motor de expresiones", () => {
+  afterEach(() => {
+    try {
+      for (const engine of engines) {
+        engine.dispose();
+      }
+    } finally {
+      engines.length = 0;
+      WorkerStub.instances = [];
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("asocia cada respuesta con su solicitud aunque lleguen en otro orden", async () => {
     const { engine, worker } = createEngine();
+    const firstResult = createResult("A");
+    const secondResult = createResult("B");
 
     const first = engine.findMinimum(10, 3);
     const second = engine.findMinimum(12, 3);
@@ -70,28 +76,33 @@ describe("⚙️ Motor de expresiones", () => {
     worker.respond({
       id: 1,
       success: true,
-      result: result("B"),
+      result: secondResult,
     });
     worker.respond({
       id: 0,
       success: true,
-      result: result("A"),
+      result: firstResult,
     });
 
-    await expect(first).resolves.toEqual(result("A"));
-    await expect(second).resolves.toEqual(result("B"));
+    await expect(first).resolves.toEqual(firstResult);
+    await expect(second).resolves.toEqual(secondResult);
   });
 
-  it("admite una respuesta sin solución dentro del límite", async () => {
+  it("admite una respuesta sin solución dentro del límite solicitado", async () => {
     const { engine, worker } = createEngine();
+
     const pending = engine.findMinimum(1, 0);
 
-    worker.respond({ id: 0, success: true, result: null });
+    worker.respond({
+      id: 0,
+      success: true,
+      result: null,
+    });
 
     await expect(pending).resolves.toBeNull();
   });
 
-  it("un error de búsqueda no cierra el motor", async () => {
+  it("permite nuevas búsquedas después de un error de búsqueda", async () => {
     const { engine, worker } = createEngine();
     const pending = engine.findMinimum(1, 3);
     const rejected = expect(pending).rejects.toThrow("Búsqueda fallida.");
@@ -103,29 +114,44 @@ describe("⚙️ Motor de expresiones", () => {
     });
 
     await rejected;
+
     expect(worker.terminate).not.toHaveBeenCalled();
 
+    const expected = createResult("A");
     const next = engine.findMinimum(10, 3);
-    worker.respond({ id: 1, success: true, result: result("A") });
 
-    await expect(next).resolves.toEqual(result("A"));
+    worker.respond({
+      id: 1,
+      success: true,
+      result: expected,
+    });
+
+    await expect(next).resolves.toEqual(expected);
   });
 
-  it("rechaza selecciones y límites inválidos sin enviarlos al worker", async () => {
-    const { engine, worker } = createEngine();
+  it.each([-1, 16, 1.5, Number.NaN])(
+    "rechaza la selección inválida %s sin enviarla al worker",
+    async (mask) => {
+      const { engine, worker } = createEngine();
 
-    for (const mask of [-1, 16, 1.5, Number.NaN]) {
       await expect(engine.findMinimum(mask, 3)).rejects.toThrow("selección");
-    }
 
-    for (const limit of [-1, 128, 1.5, Number.NaN]) {
+      expect(worker.postMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([-1, 128, 1.5, Number.NaN])(
+    "rechaza el límite inválido %s sin enviarlo al worker",
+    async (limit) => {
+      const { engine, worker } = createEngine();
+
       await expect(engine.findMinimum(1, limit)).rejects.toThrow("límite");
-    }
 
-    expect(worker.postMessage).not.toHaveBeenCalled();
-  });
+      expect(worker.postMessage).not.toHaveBeenCalled();
+    },
+  );
 
-  it("cancela las solicitudes pendientes y cierra una sola vez", async () => {
+  it("cancela las solicitudes pendientes y cierra el worker una sola vez", async () => {
     const { engine, worker } = createEngine();
 
     const first = expect(engine.findMinimum(1, 3)).rejects.toThrow("cancelada");
@@ -139,28 +165,32 @@ describe("⚙️ Motor de expresiones", () => {
     expect(worker.terminate).toHaveBeenCalledTimes(1);
 
     await expect(engine.findMinimum(1, 3)).rejects.toThrow("cancelada");
+
+    expect(worker.postMessage).toHaveBeenCalledTimes(2);
   });
 
-  it("conserva el error del worker para solicitudes pendientes y futuras", async () => {
+  it("conserva el error del worker para las solicitudes pendientes y futuras", async () => {
     const { engine, worker } = createEngine();
+    const message = "No se pudo cargar WASM.";
 
-    const first = expect(engine.findMinimum(1, 3)).rejects.toThrow("No se pudo cargar WASM.");
-    const second = expect(engine.findMinimum(2, 3)).rejects.toThrow("No se pudo cargar WASM.");
+    const first = expect(engine.findMinimum(1, 3)).rejects.toThrow(message);
+    const second = expect(engine.findMinimum(2, 3)).rejects.toThrow(message);
 
     worker.dispatchEvent(
       new ErrorEvent("error", {
-        message: "No se pudo cargar WASM.",
+        message,
       }),
     );
 
     await Promise.all([first, second]);
 
-    await expect(engine.findMinimum(1, 3)).rejects.toThrow("No se pudo cargar WASM.");
+    await expect(engine.findMinimum(1, 3)).rejects.toThrow(message);
 
     expect(worker.terminate).toHaveBeenCalledTimes(1);
+    expect(worker.postMessage).toHaveBeenCalledTimes(2);
   });
 
-  it("cierra el motor cuando una respuesta no puede deserializarse", async () => {
+  it("cierra el motor cuando no se puede deserializar una respuesta", async () => {
     const { engine, worker } = createEngine();
 
     const rejected = expect(engine.findMinimum(1, 3)).rejects.toThrow("No se pudo leer");
@@ -168,6 +198,7 @@ describe("⚙️ Motor de expresiones", () => {
     worker.dispatchEvent(new MessageEvent("messageerror"));
 
     await rejected;
+
     expect(worker.terminate).toHaveBeenCalledTimes(1);
   });
 
@@ -178,11 +209,19 @@ describe("⚙️ Motor de expresiones", () => {
       throw new Error("No se pudo enviar la solicitud.");
     });
 
-    await expect(engine.findMinimum(1, 3)).rejects.toThrow("No se pudo enviar");
+    await expect(engine.findMinimum(1, 3)).rejects.toThrow("No se pudo enviar la solicitud.");
 
+    expect(worker.terminate).not.toHaveBeenCalled();
+
+    const expected = createResult("A");
     const next = engine.findMinimum(10, 3);
-    worker.respond({ id: 1, success: true, result: result("A") });
 
-    await expect(next).resolves.toEqual(result("A"));
+    worker.respond({
+      id: 1,
+      success: true,
+      result: expected,
+    });
+
+    await expect(next).resolves.toEqual(expected);
   });
 });
