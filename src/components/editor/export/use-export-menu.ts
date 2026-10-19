@@ -1,3 +1,6 @@
+import { useDismissableLayer } from "@/hooks/use-dismissable-layer";
+import { getErrorMessage } from "@/lib/errors";
+import { getExpressionSearchKey } from "@/domain/venn/expressions/expression-search-key";
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { getSelectedMask } from "@/domain/venn/expressions/expression-masks";
@@ -16,10 +19,6 @@ const COPY_FEEDBACK_DURATION = 1_500;
 interface ExportMessage {
   text: string;
   type: "success" | "error";
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function useCopyFeedback() {
@@ -66,12 +65,10 @@ export function useExportMenu() {
   const formulaFeedback = useCopyFeedback();
   const linkFeedback = useCopyFeedback();
 
-  const setsKey = JSON.stringify(diagram.sets.map(({ id, name }) => ({ id, name })));
   const selectedMask = getSelectedMask(diagram, selectedRegionIds);
   const hasSelection = selectedRegionIds.length > 0;
 
-  // Debe coincidir con la clave utilizada por el editor de fórmulas.
-  const searchKey = JSON.stringify([setsKey, selectedMask, hasSelection]);
+  const searchKey = getExpressionSearchKey(diagram, selectedMask, hasSelection);
 
   const formula =
     hasSelection && expression.key === searchKey && expression.status === "ready"
@@ -105,37 +102,11 @@ export function useExportMenu() {
     dismissMenu(true);
   }, [dismissMenu]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) {
-        return;
-      }
-
-      event.preventDefault();
-      closeMenu();
-    }
-
-    function handlePointerDown(event: PointerEvent): void {
-      const details = detailsRef.current;
-
-      if (details && event.target instanceof Node && !details.contains(event.target)) {
-        // Un clic fuera conserva el foco en el destino del usuario.
-        dismissMenu(false);
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("pointerdown", handlePointerDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [isOpen, closeMenu, dismissMenu]);
+  useDismissableLayer({
+    containerRef: detailsRef,
+    isOpen: () => isOpen,
+    onDismiss: dismissMenu,
+  });
 
   function showMessage(text: string, type: ExportMessage["type"]): void {
     if (mountedRef.current) {

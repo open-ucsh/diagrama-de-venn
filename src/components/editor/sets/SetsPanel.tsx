@@ -1,40 +1,60 @@
-import { ChevronDown, Plus } from "lucide-react";
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
+import { getErrorMessage } from "@/lib/errors";
+import { ChevronDown, Pencil, Plus } from "lucide-react";
 import { useId, useState } from "react";
 
+import { DefinitionEditor } from "@/components/editor/sets/DefinitionEditor";
 import { SetPanelItem } from "@/components/editor/sets/SetPanelItem";
 import { getNextSetName, getNextSetPosition } from "@/components/editor/sets/set-defaults";
-import { DEFAULT_SET_COLORS } from "@/domain/venn/factories";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
+import { formatElementLabels, getSetElements } from "@/domain/venn/elements";
+import { getSetColor } from "@/domain/venn/set-colors";
 import type { VennSet } from "@/domain/venn/models";
-import { MAX_SETS, MIN_SETS } from "@/domain/venn/operations";
+import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import { useVennStore } from "@/state/venn-store";
 
-function getSetColor(set: VennSet, index: number): string {
-  return set.color ?? DEFAULT_SET_COLORS[index] ?? DEFAULT_SET_COLORS[0];
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
+type EditingTarget = { kind: "set"; id: string } | { kind: "universe" } | null;
 
 export function SetsPanel() {
   const panelId = useId();
 
-  const sets = useVennStore((state) => state.diagram.sets);
+  const diagram = useVennStore((state) => state.diagram);
   const createSet = useVennStore((state) => state.createSet);
-  const renameSet = useVennStore((state) => state.renameSet);
+  const saveSetDefinition = useVennStore((state) => state.saveSetDefinition);
+  const saveUniverseDefinition = useVennStore((state) => state.saveUniverseDefinition);
   const removeSet = useVennStore((state) => state.removeSet);
   const setSetColor = useVennStore((state) => state.setSetColor);
   const toggleSetVisibility = useVennStore((state) => state.toggleSetVisibility);
 
-  const [editingSetId, setEditingSetId] = useState<string | null>(null);
-  const [draftName, setDraftName] = useState("");
-  const [nameError, setNameError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<EditingTarget>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
-  const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(
+    () => window.matchMedia("(min-width: 1024px)").matches,
+  );
   const [announcement, setAnnouncement] = useState("");
 
+  const { sets } = diagram;
   const canCreateSet = sets.length < MAX_SETS;
   const canRemoveSet = sets.length > MIN_SETS;
+  const universeLabels = diagram.elements.map((element) => element.label);
+  const universePreview = formatElementLabels(universeLabels);
+  const isEditingUniverse = editing?.kind === "universe";
+
+  useKeyboardShortcut({
+    ...SHORTCUTS.toggleSets,
+    onTrigger: () => {
+      setIsPanelOpen((open) => !open);
+    },
+  });
+
+  function cancelEditing(): void {
+    setEditing(null);
+  }
+
+  function startEditing(set: VennSet): void {
+    setPanelError(null);
+    setEditing({ kind: "set", id: set.id });
+  }
 
   function handleCreateSet(): void {
     if (!canCreateSet) {
@@ -42,7 +62,7 @@ export function SetsPanel() {
     }
 
     setPanelError(null);
-    setIsMobilePanelOpen(true);
+    setIsPanelOpen(true);
 
     try {
       const name = getNextSetName(sets);
@@ -53,40 +73,6 @@ export function SetsPanel() {
     } catch (error) {
       setPanelError(
         getErrorMessage(error, "No fue posible crear el conjunto. Inténtalo nuevamente."),
-      );
-    }
-  }
-
-  function startEditing(set: VennSet): void {
-    setEditingSetId(set.id);
-    setDraftName(set.name);
-    setNameError(null);
-  }
-
-  function cancelEditing(): void {
-    setEditingSetId(null);
-    setDraftName("");
-    setNameError(null);
-  }
-
-  function saveName(set: VennSet): void {
-    try {
-      if (draftName !== set.name) {
-        renameSet(set.id, draftName);
-
-        const renamedSet = useVennStore
-          .getState()
-          .diagram.sets.find((current) => current.id === set.id);
-
-        if (renamedSet && renamedSet.name !== set.name) {
-          setAnnouncement(`Conjunto renombrado a ${renamedSet.name}.`);
-        }
-      }
-
-      cancelEditing();
-    } catch (error) {
-      setNameError(
-        getErrorMessage(error, "No fue posible guardar el nombre. Inténtalo nuevamente."),
       );
     }
   }
@@ -125,9 +111,7 @@ export function SetsPanel() {
       return;
     }
 
-    const confirmed = window.confirm(`¿Quieres eliminar el conjunto "${set.name}"?`);
-
-    if (!confirmed) {
+    if (!window.confirm(`¿Quieres eliminar el conjunto "${set.name}"?`)) {
       return;
     }
 
@@ -137,7 +121,7 @@ export function SetsPanel() {
       removeSet(set.id);
       setAnnouncement(`Conjunto ${set.name} eliminado.`);
 
-      if (editingSetId === set.id) {
+      if (editing?.kind === "set" && editing.id === set.id) {
         cancelEditing();
       }
     } catch (error) {
@@ -148,60 +132,39 @@ export function SetsPanel() {
   }
 
   return (
-    <aside
-      aria-label="Editor de conjuntos"
-      className="venn-sets-panel__card shrink-0 border-b border-border bg-white lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0"
-    >
+    <aside aria-label="Editor de conjuntos" className="venn-sets-panel__card">
       <div aria-atomic="true" aria-live="polite" className="sr-only">
         {announcement}
       </div>
 
-      <header className="venn-sets-panel__header border-b border-border">
+      <header className="venn-sets-panel__header">
         <button
           aria-controls={panelId}
-          aria-expanded={isMobilePanelOpen}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary lg:hidden"
-          onClick={() => setIsMobilePanelOpen((open) => !open)}
+          aria-expanded={isPanelOpen}
+          aria-keyshortcuts="Control+Shift+1 Meta+Shift+1"
+          className="flex w-full items-center gap-3 rounded-md text-left"
+          onClick={() => setIsPanelOpen((open) => !open)}
+          title="Mostrar u ocultar conjuntos (Ctrl/Cmd + Shift + 1)"
           type="button"
         >
-          <span className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-text-muted">
-              Conjuntos
-            </span>
+          <span className="min-w-0 flex-1 text-sm font-semibold text-brand-primary">Conjuntos</span>
 
-            <span className="grid size-6 place-items-center rounded-full bg-brand-primary/10 text-xs font-bold text-brand-primary">
-              {sets.length}
-            </span>
-          </span>
-
-          <span className="text-xs font-medium text-text-muted">
-            {isMobilePanelOpen ? "Ocultar" : "Editar"}
+          <span className="text-xs tabular-nums text-text-muted">
+            {sets.length}/{MAX_SETS}
           </span>
 
           <ChevronDown
             aria-hidden="true"
             className={[
-              "size-5 text-text-muted transition-transform",
-              isMobilePanelOpen ? "rotate-180" : "",
+              "size-4 text-text-muted transition-transform",
+              isPanelOpen ? "rotate-180" : "",
             ].join(" ")}
           />
         </button>
-
-        <div className="venn-sets-panel__desktop-header hidden items-center justify-between px-5 py-4 lg:flex">
-          <p className="text-xs font-bold uppercase tracking-widest text-text-muted">Conjuntos</p>
-
-          <span className="bg-surface px-2 py-1 text-xs font-semibold text-text-muted">
-            {sets.length}/{MAX_SETS}
-          </span>
-        </div>
       </header>
 
       <div
-        className={[
-          "venn-sets-panel__content max-h-96 overflow-y-auto px-4",
-          isMobilePanelOpen ? "block" : "hidden",
-          "lg:block lg:max-h-none lg:overflow-visible",
-        ].join(" ")}
+        className={["venn-sets-panel__content", isPanelOpen ? "block" : "hidden"].join(" ")}
         id={panelId}
       >
         {sets.map((set, index) => (
@@ -210,50 +173,77 @@ export function SetsPanel() {
               canRemoveSet={canRemoveSet}
               cancelEditing={cancelEditing}
               color={getSetColor(set, index)}
-              draftName={draftName}
+              elements={getSetElements(diagram, set.id).map((element) => element.label)}
               handleRemoveSet={handleRemoveSet}
               index={index}
-              isEditing={editingSetId === set.id}
-              nameError={nameError}
-              saveName={saveName}
+              isEditing={editing?.kind === "set" && editing.id === set.id}
+              saveDefinition={(name, elements) => {
+                saveSetDefinition(set.id, name, elements);
+                setAnnouncement(`Conjunto ${name.trim()} actualizado.`);
+              }}
               set={set}
-              setDraftName={setDraftName}
-              setNameError={setNameError}
               setSetColor={handleSetColor}
               startEditing={startEditing}
               toggleSetVisibility={handleToggleVisibility}
             />
 
-            {index < sets.length - 1 && (
-              <div aria-hidden="true" className="h-px w-full bg-border" />
-            )}
+            {index < sets.length - 1 && <div aria-hidden="true" className="mx-2 h-px bg-border" />}
           </div>
         ))}
 
-        {sets.length === MAX_SETS && (
-          <div className="my-3 border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
-            <p className="text-xs font-semibold text-emerald-800">Diagrama de cuatro conjuntos</p>
+        <div className="mt-2 border-t border-border px-2 py-4">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-brand-primary">Universo U</p>
 
-            <p className="mt-1 text-xs leading-5 text-text-muted">
-              Los círculos se transformaron en elipses para representar las 16 regiones posibles.
-            </p>
+              <p className="mt-1 truncate text-xs text-text-muted" title={universePreview}>
+                {universePreview}
+              </p>
+            </div>
+
+            <button
+              aria-expanded={isEditingUniverse}
+              aria-label="Editar elementos del universo"
+              className="venn-sets-panel__action grid size-8 shrink-0 place-items-center text-text-muted transition-colors hover:bg-surface-hover hover:text-brand-primary"
+              onClick={() => {
+                setPanelError(null);
+                setEditing(isEditingUniverse ? null : { kind: "universe" });
+              }}
+              title="Editar universo"
+              type="button"
+            >
+              <Pencil aria-hidden="true" className="size-4" />
+            </button>
           </div>
-        )}
+
+          {isEditingUniverse && (
+            <DefinitionEditor
+              initialElements={universeLabels.join(", ")}
+              onClose={cancelEditing}
+              onSave={(_name, elements) => {
+                saveUniverseDefinition(elements);
+                setAnnouncement("Universo actualizado.");
+              }}
+              title="Editar universo U"
+            />
+          )}
+        </div>
 
         {panelError && (
-          <p className="my-3 text-xs leading-5 text-red-700" role="alert">
+          <p className="my-3 px-2 text-xs leading-5 text-red-700" role="alert">
             {panelError}
           </p>
         )}
 
         <button
-          className="venn-sets-panel__add-button mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-sm font-bold text-text-muted transition-colors hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:bg-surface disabled:text-text-muted"
+          className="venn-sets-panel__add-button flex w-full items-center justify-center gap-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-brand-primary disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60"
           disabled={!canCreateSet}
           onClick={handleCreateSet}
+          title={canCreateSet ? "Añadir conjunto" : `Máximo de ${MAX_SETS} conjuntos`}
           type="button"
         >
           <Plus aria-hidden="true" className="size-4" />
-          {canCreateSet ? "Añadir conjunto" : `Máximo de ${MAX_SETS} conjuntos`}
+          Añadir conjunto
         </button>
       </div>
     </aside>

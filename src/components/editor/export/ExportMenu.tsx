@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useId } from "react";
 
-import { useExportMenu } from "@/components/editor/use-export-menu";
+import { useExportMenu } from "@/components/editor/export/use-export-menu";
 import { useVennStore } from "@/state/venn-store";
 
 interface ExportActionProps {

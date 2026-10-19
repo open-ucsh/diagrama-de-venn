@@ -1,3 +1,5 @@
+import { VENN_CANVAS_SIZE } from "@/domain/venn/geometry";
+
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 function downloadBlob(blob: Blob, fileName: string) {
@@ -80,8 +82,8 @@ function createExportSvg(): SVGSVGElement {
 
   clone.setAttribute("xmlns", SVG_NAMESPACE);
 
-  clone.setAttribute("width", "900");
-  clone.setAttribute("height", "600");
+  clone.setAttribute("width", String(VENN_CANVAS_SIZE.width));
+  clone.setAttribute("height", String(VENN_CANVAS_SIZE.height));
 
   clone.removeAttribute("class");
 
@@ -89,8 +91,8 @@ function createExportSvg(): SVGSVGElement {
 
   background.setAttribute("x", "0");
   background.setAttribute("y", "0");
-  background.setAttribute("width", "900");
-  background.setAttribute("height", "600");
+  background.setAttribute("width", String(VENN_CANVAS_SIZE.width));
+  background.setAttribute("height", String(VENN_CANVAS_SIZE.height));
   background.setAttribute("fill", "#ffffff");
 
   clone.insertBefore(background, clone.firstChild);
@@ -142,8 +144,8 @@ export async function exportDiagramPng(diagramName: string) {
 
     const canvas = document.createElement("canvas");
 
-    canvas.width = 900 * scale;
-    canvas.height = 600 * scale;
+    canvas.width = VENN_CANVAS_SIZE.width * scale;
+    canvas.height = VENN_CANVAS_SIZE.height * scale;
 
     const context = canvas.getContext("2d");
 

@@ -1,18 +1,14 @@
+import { isRecord } from "@/lib/validation";
+import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import type { VennDiagram, VennElement, VennSet } from "@/domain/venn/models";
 import { getVennRegions } from "@/domain/venn/regions";
 
 const PROJECT_VERSION = 1;
-const MINIMUM_SET_COUNT = 1;
-const MAXIMUM_SET_COUNT = 4;
 
 export interface VennProjectFile {
   version: 1;
   diagram: VennDiagram;
   selectedRegionIds: string[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -110,7 +106,7 @@ function parseDiagram(value: unknown): VennDiagram {
     throw new Error("El archivo no contiene un diagrama válido.");
   }
 
-  if (value.sets.length < MINIMUM_SET_COUNT || value.sets.length > MAXIMUM_SET_COUNT) {
+  if (value.sets.length < MIN_SETS || value.sets.length > MAX_SETS) {
     throw new Error("El diagrama debe contener entre 1 y 4 conjuntos.");
   }
 

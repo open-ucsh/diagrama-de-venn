@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 interface HistoryShortcutsOptions {
   canUndo: boolean;
@@ -7,57 +8,27 @@ interface HistoryShortcutsOptions {
   redo: () => void;
 }
 
-function isEditableElement(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    target.isContentEditable
-  );
-}
-
 export function useHistoryShortcuts({
   canUndo,
   canRedo,
   undo,
   redo,
 }: HistoryShortcutsOptions): void {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (
-        event.defaultPrevented ||
-        event.isComposing ||
-        event.altKey ||
-        isEditableElement(event.target) ||
-        !(event.ctrlKey || event.metaKey)
-      ) {
-        return;
-      }
+  useKeyboardShortcut({
+    ...SHORTCUTS.undo,
+    enabled: canUndo,
+    onTrigger: undo,
+  });
 
-      const key = event.key.toLowerCase();
-      const wantsUndo = key === "z" && !event.shiftKey;
-      const wantsRedo = (key === "z" && event.shiftKey) || (key === "y" && !event.shiftKey);
+  useKeyboardShortcut({
+    ...SHORTCUTS.redo,
+    enabled: canRedo,
+    onTrigger: redo,
+  });
 
-      if (wantsUndo && canUndo) {
-        event.preventDefault();
-        undo();
-        return;
-      }
-
-      if (wantsRedo && canRedo) {
-        event.preventDefault();
-        redo();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [canUndo, canRedo, undo, redo]);
+  useKeyboardShortcut({
+    ...SHORTCUTS.redoAlternative,
+    enabled: canRedo,
+    onTrigger: redo,
+  });
 }

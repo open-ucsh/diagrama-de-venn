@@ -1,3 +1,4 @@
+import { isRecord } from "@/lib/validation";
 import { create } from "zustand";
 import type { StateStorage } from "zustand/middleware";
 
@@ -36,10 +37,6 @@ function createMemoryStorage() {
 }
 
 const memoryStorage = createMemoryStorage();
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function reportIssue(issue: RecoveryIssue): null {
   useStorageRecovery.setState({ issue });

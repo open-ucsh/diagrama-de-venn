@@ -1,5 +1,9 @@
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
+import { useDismissableLayer } from "@/hooks/use-dismissable-layer";
 import { Check, Clock3, Copy, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 const COPY_FEEDBACK_DURATION = 1_500;
 
@@ -26,6 +30,20 @@ export function FormulaHistoryMenu({
   const [copiedFormula, setCopiedFormula] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
 
+  useKeyboardShortcut({
+    ...SHORTCUTS.toggleHistory,
+    onTrigger: () => {
+      const details = detailsRef.current;
+
+      if (!details) {
+        return;
+      }
+
+      details.open = !details.open;
+      details.querySelector("summary")?.focus();
+    },
+  });
+
   const closeMenu = useCallback((restoreFocus: boolean): void => {
     const details = detailsRef.current;
 
@@ -40,43 +58,21 @@ export function FormulaHistoryMenu({
     }
   }, []);
 
+  useDismissableLayer({
+    containerRef: detailsRef,
+    isOpen: () => detailsRef.current?.open ?? false,
+    onDismiss: closeMenu,
+  });
+
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (
-        !detailsRef.current?.open ||
-        event.key !== "Escape" ||
-        event.defaultPrevented ||
-        event.isComposing
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      closeMenu(true);
-    }
-
-    function handlePointerDown(event: PointerEvent): void {
-      const details = detailsRef.current;
-
-      if (details?.open && event.target instanceof Node && !details.contains(event.target)) {
-        closeMenu(false);
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("pointerdown", handlePointerDown);
-
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("pointerdown", handlePointerDown);
-
       copyRequestRef.current += 1;
 
       if (copyTimeoutRef.current !== null) {
         clearTimeout(copyTimeoutRef.current);
       }
     };
-  }, [closeMenu]);
+  }, []);
 
   function resetCopyFeedback(): void {
     copyRequestRef.current += 1;
@@ -149,8 +145,9 @@ export function FormulaHistoryMenu({
       <summary
         aria-controls={panelId}
         aria-label="Abrir historial de fórmulas"
+        aria-keyshortcuts="Control+Shift+3 Meta+Shift+3"
         className="flex h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary [&::-webkit-details-marker]:hidden"
-        title="Historial de fórmulas"
+        title="Historial de fórmulas (Ctrl/Cmd + Shift + 3)"
       >
         <Clock3 aria-hidden="true" className="size-4" />
         <span className="hidden sm:inline">Historial</span>
@@ -197,10 +194,7 @@ export function FormulaHistoryMenu({
               const copied = copiedFormula === formula;
 
               return (
-                <li
-                  className="flex items-center gap-1 rounded-lg px-1 transition-colors hover:bg-surface"
-                  key={formula}
-                >
+                <li className="flex items-center gap-1 rounded-md hover:bg-surface" key={formula}>
                   <button
                     className={[
                       "min-w-0 flex-1 rounded-md px-2 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-primary",
@@ -221,7 +215,7 @@ export function FormulaHistoryMenu({
                       </span>
 
                       <span className="min-w-0 flex-1">
-                        <span className="block break-all font-mono text-sm font-medium leading-5 text-text">
+                        <span className="block font-mono text-sm leading-5 font-medium break-all text-text">
                           {formula}
                         </span>
 

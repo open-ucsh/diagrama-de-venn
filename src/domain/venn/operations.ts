@@ -1,8 +1,8 @@
+import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import { createCircleSetLayout, createFourSetEllipseLayout } from "@/domain/venn/factories";
 import type { Point, VennDiagram, VennElement, VennSet } from "@/domain/venn/models";
 
-export const MAX_SETS = 4;
-export const MIN_SETS = 1;
+export { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 
 function normalizeSetName(name: string): string {
   return name.trim().replace(/\s+/g, " ");
@@ -220,5 +220,29 @@ export function removeElement(diagram: VennDiagram, elementId: string): VennDiag
   return withUpdatedElements(
     diagram,
     diagram.elements.filter((element) => element.id !== elementId),
+  );
+}
+
+export function setSetColor(diagram: VennDiagram, setId: string, color: string): VennDiagram {
+  const currentSet = diagram.sets.find((set) => set.id === setId);
+
+  if (!currentSet || currentSet.color === color) {
+    return diagram;
+  }
+
+  return withUpdatedSets(
+    diagram,
+    diagram.sets.map((set) => (set.id === setId ? { ...set, color } : set)),
+  );
+}
+
+export function toggleSetVisibility(diagram: VennDiagram, setId: string): VennDiagram {
+  if (!diagram.sets.some((set) => set.id === setId)) {
+    return diagram;
+  }
+
+  return withUpdatedSets(
+    diagram,
+    diagram.sets.map((set) => (set.id === setId ? { ...set, hidden: !set.hidden } : set)),
   );
 }

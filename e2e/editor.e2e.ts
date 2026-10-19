@@ -70,7 +70,7 @@ async function getFormulaStatus(page: Page): Promise<Locator> {
 
 function getRenameButton(page: Page, name: string): Locator {
   return page.getByRole("button", {
-    name: `Renombrar conjunto ${name}`,
+    name: `Editar conjunto ${name}, 0 elementos`,
     exact: true,
   });
 }
@@ -78,13 +78,24 @@ function getRenameButton(page: Page, name: string): Locator {
 async function renameSet(page: Page, currentName: string, nextName: string): Promise<void> {
   await getRenameButton(page, currentName).click();
 
-  const input = page.getByRole("textbox", {
-    name: `Nuevo nombre para ${currentName}`,
+  const form = page.getByRole("form", {
+    name: `Editar conjunto ${currentName}`,
     exact: true,
   });
 
-  await input.fill(nextName);
-  await input.press("Enter");
+  await form
+    .getByRole("textbox", {
+      name: "Nombre",
+      exact: true,
+    })
+    .fill(nextName);
+
+  await form
+    .getByRole("button", {
+      name: "Guardar",
+      exact: true,
+    })
+    .click();
 
   await expect(getRenameButton(page, nextName)).toBeVisible();
 }
