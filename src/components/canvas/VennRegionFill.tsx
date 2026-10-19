@@ -79,7 +79,7 @@ export function VennRegionFill({
           excludedSets,
         };
       }),
-    [diagram.sets, idPrefix],
+    [diagram, idPrefix],
   );
 
   const selectedIds = new Set(selectedRegionIds);

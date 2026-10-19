@@ -1,6 +1,7 @@
-import { Check, CircleAlert, LoaderCircle, Sigma, X } from "lucide-react";
+import { CircleAlert, LoaderCircle, Sigma, X } from "lucide-react";
 import { type KeyboardEvent, useId } from "react";
 
+import { FormulaElements } from "@/components/editor/formula/FormulaElements";
 import { FormulaHistoryMenu } from "@/components/editor/formula/FormulaHistoryMenu";
 import { useFormulaEditor } from "@/components/editor/formula/use-formula-editor";
 
@@ -42,7 +43,7 @@ export function FormulaBar() {
   } = useFormulaEditor();
 
   const statusError = error ?? calculationError;
-  const selectedRegionCount = selectedRegionIds.length;
+  const selectedCount = selectedRegionIds.length;
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key !== "Enter" || event.nativeEvent.isComposing) {
@@ -54,58 +55,64 @@ export function FormulaBar() {
   }
 
   return (
-    <section
-      aria-label="Editor de fórmula"
-      className="venn-formula-bar mx-auto w-full max-w-4xl overflow-visible rounded-xl border border-border bg-white shadow-[0_4px_20px_rgba(20,43,74,0.06)]"
-    >
-      <div className="venn-formula-bar__input-section px-3 pt-3 sm:px-4 sm:pt-4">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <label
-            className="venn-formula-bar__label flex items-center gap-2 text-xs font-semibold tracking-wide text-text-muted"
-            htmlFor={inputId}
-          >
-            <Sigma aria-hidden="true" className="size-4 text-brand-primary" />
-            Expresión
-          </label>
+    <section aria-label="Editor de fórmula" className="venn-formula-bar">
+      <div className="venn-formula-toolbar">
+        <label
+          className="grid size-8 shrink-0 place-items-center text-brand-primary"
+          htmlFor={inputId}
+        >
+          <Sigma aria-hidden="true" className="size-5" />
+          <span className="sr-only">Expresión</span>
+        </label>
 
-          <span className="venn-formula-bar__hint hidden text-xs text-text-muted sm:block">
-            Usa los operadores o escribe directamente
-          </span>
+        <div className="relative min-w-0 flex-1">
+          <input
+            aria-describedby={statusId}
+            aria-invalid={Boolean(error)}
+            autoComplete="off"
+            className="venn-formula-input"
+            id={inputId}
+            onBlur={finishEditing}
+            onChange={handleChange}
+            onFocus={beginEditing}
+            onKeyDown={handleKeyDown}
+            placeholder="Ejemplo: A ∪ B"
+            ref={inputRef}
+            spellCheck={false}
+            type="text"
+            value={formula}
+          />
+
+          {hasFormula && (
+            <button
+              aria-label="Limpiar fórmula"
+              className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded text-text-muted hover:bg-surface-hover"
+              onClick={clearFormula}
+              onMouseDown={(event) => event.preventDefault()}
+              type="button"
+            >
+              <X aria-hidden="true" className="size-3.5" />
+            </button>
+          )}
         </div>
 
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <input
-              aria-describedby={statusId}
-              aria-invalid={Boolean(error)}
-              autoComplete="off"
-              className="venn-formula-bar__input h-11 w-full rounded-lg border border-border bg-surface/60 px-3 pr-10 font-mono text-sm font-medium text-text outline-none transition-colors placeholder:font-sans placeholder:font-normal placeholder:text-text-muted focus:border-brand-primary focus:bg-white focus:ring-2 focus:ring-brand-primary/10 sm:text-base"
-              id={inputId}
-              onBlur={finishEditing}
-              onChange={handleChange}
-              onFocus={beginEditing}
-              onKeyDown={handleKeyDown}
-              placeholder={isCalculating ? "Buscando fórmula mínima…" : "Ejemplo: (A ∪ B) ∩ C'"}
-              ref={inputRef}
-              spellCheck={false}
-              type="text"
-              value={formula}
-            />
+        <div aria-label="Operadores" className="venn-formula-operators" role="group">
+          {FORMULA_SYMBOLS.map(({ label, value, title }) => (
+            <button
+              aria-label={title}
+              className="venn-operator"
+              key={title}
+              onClick={() => insertSymbol(value)}
+              onMouseDown={(event) => event.preventDefault()}
+              title={title}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-            {hasFormula && (
-              <button
-                aria-label="Limpiar fórmula"
-                className="absolute top-1/2 right-2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
-                onClick={clearFormula}
-                onMouseDown={(event) => event.preventDefault()}
-                title="Limpiar fórmula"
-                type="button"
-              >
-                <X aria-hidden="true" className="size-4" />
-              </button>
-            )}
-          </div>
-
+        <div className="venn-formula-history">
           <FormulaHistoryMenu
             formulas={formulaHistory}
             isAvailable={isHistoryFormulaAvailable}
@@ -114,58 +121,34 @@ export function FormulaBar() {
             onSelect={applyHistoryFormula}
           />
         </div>
-
-        <div
-          aria-atomic="true"
-          className="venn-formula-bar__status flex min-h-8 items-center"
-          id={statusId}
-          role={statusError ? "alert" : "status"}
-        >
-          {statusError ? (
-            <p className="flex items-center gap-1.5 text-xs font-medium text-red-600">
-              <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />
-              {statusError}
-            </p>
-          ) : isCalculating ? (
-            <p className="flex items-center gap-1.5 text-xs text-text-muted">
-              <LoaderCircle aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
-              Buscando fórmula mínima…
-            </p>
-          ) : isValid ? (
-            <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-              <Check aria-hidden="true" className="size-3.5" />
-              {isMinimum ? "Fórmula mínima" : "Fórmula válida"}
-              <span className="text-text-muted">·</span>
-              {selectedRegionCount}{" "}
-              {selectedRegionCount === 1 ? "región seleccionada" : "regiones seleccionadas"}
-            </p>
-          ) : (
-            <p className="text-xs text-text-muted">
-              Escribe una expresión o selecciona regiones en el diagrama.
-            </p>
-          )}
-        </div>
       </div>
 
-      <div className="venn-formula-bar__actions flex flex-wrap items-center gap-1.5 border-t border-border px-3 py-2.5 sm:gap-2 sm:px-4">
-        {FORMULA_SYMBOLS.map(({ label, value, title }) => (
-          <button
-            aria-label={title}
-            className="grid size-8 shrink-0 place-items-center rounded-md border border-transparent font-mono text-sm font-semibold text-text-muted transition-colors hover:border-border hover:bg-surface hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
-            key={title}
-            onClick={() => insertSymbol(value)}
-            onMouseDown={(event) => event.preventDefault()}
-            title={title}
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
-
-        <span className="ml-auto hidden text-xs text-text-muted sm:block">
-          Atajos: <code className="font-mono">| &amp; ! -</code>
-        </span>
+      <div
+        aria-atomic="true"
+        className={statusError || isCalculating ? "venn-formula-feedback" : "sr-only"}
+        id={statusId}
+        role={statusError ? "alert" : "status"}
+      >
+        {statusError ? (
+          <>
+            <CircleAlert aria-hidden="true" className="size-3.5 shrink-0" />
+            {statusError}
+          </>
+        ) : isCalculating ? (
+          <>
+            <LoaderCircle aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
+            Buscando fórmula mínima…
+          </>
+        ) : isValid ? (
+          `${isMinimum ? "Fórmula mínima" : "Fórmula válida"}. ${selectedCount} ${
+            selectedCount === 1 ? "región seleccionada" : "regiones seleccionadas"
+          }.`
+        ) : (
+          "Escribe una expresión o selecciona regiones en el diagrama."
+        )}
       </div>
+
+      {!statusError && !isCalculating && <FormulaElements formula={formula} />}
     </section>
   );
 }
