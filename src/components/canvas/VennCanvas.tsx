@@ -1,3 +1,4 @@
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
 import { getSetColor } from "@/domain/venn/set-colors";
 import { type KeyboardEvent, type MouseEvent, useId, useMemo, useRef, useState } from "react";
 
@@ -70,8 +71,7 @@ export function VennCanvas() {
   const [inspectorClosed, setInspectorClosed] = useState(false);
 
   useKeyboardShortcut({
-    code: "Digit2",
-    shift: true,
+    ...SHORTCUTS.toggleRegions,
     onTrigger: () => {
       const details = regionsRef.current;
 

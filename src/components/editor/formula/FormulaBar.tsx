@@ -1,3 +1,4 @@
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
 import { CircleAlert, LoaderCircle, Sigma, X } from "lucide-react";
 import { type KeyboardEvent, useId } from "react";
 
@@ -47,15 +48,14 @@ export function FormulaBar() {
   const selectedCount = selectedRegionIds.length;
 
   useKeyboardShortcut({
-    code: "Slash",
+    ...SHORTCUTS.focusFormula,
     onTrigger: () => {
       inputRef.current?.focus();
     },
   });
 
   useKeyboardShortcut({
-    code: "Backspace",
-    shift: true,
+    ...SHORTCUTS.clearFormula,
     enabled: hasFormula || selectedCount > 0,
     onTrigger: clearFormula,
   });

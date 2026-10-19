@@ -1,3 +1,4 @@
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
 import { useDismissableLayer } from "@/hooks/use-dismissable-layer";
 import { Check, Clock3, Copy, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -30,8 +31,7 @@ export function FormulaHistoryMenu({
   const [announcement, setAnnouncement] = useState("");
 
   useKeyboardShortcut({
-    code: "Digit3",
-    shift: true,
+    ...SHORTCUTS.toggleHistory,
     onTrigger: () => {
       const details = detailsRef.current;
 

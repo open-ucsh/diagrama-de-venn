@@ -1,3 +1,4 @@
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
 import { getErrorMessage } from "@/lib/errors";
 import { ChevronDown, Pencil, Plus } from "lucide-react";
 import { useId, useState } from "react";
@@ -40,8 +41,7 @@ export function SetsPanel() {
   const isEditingUniverse = editing?.kind === "universe";
 
   useKeyboardShortcut({
-    code: "Digit1",
-    shift: true,
+    ...SHORTCUTS.toggleSets,
     onTrigger: () => {
       setIsPanelOpen((open) => !open);
     },
