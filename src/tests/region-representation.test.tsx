@@ -3,71 +3,105 @@ import { describe, expect, it } from "vitest";
 
 import { RegionTooltip } from "@/components/canvas/RegionTooltip";
 
-const bounds = { x: 24, y: 24, width: 700, height: 500 };
+const LIMITES = {
+  x: 24,
+  y: 24,
+  width: 700,
+  height: 500,
+};
 
-function tooltipText(elements: string[], outsideUniverse = false, outsideSets = false): string {
-  const markup = renderToStaticMarkup(
+interface OpcionesTooltip {
+  fueraDelUniverso?: boolean;
+  fueraDeLosConjuntos?: boolean;
+}
+
+function obtenerTooltip(
+  elementos: string[],
+  { fueraDelUniverso = false, fueraDeLosConjuntos = false }: OpcionesTooltip = {},
+) {
+  const contenedor = document.createElement("div");
+
+  contenedor.innerHTML = renderToStaticMarkup(
     <svg>
       <RegionTooltip
-        bounds={bounds}
-        elements={elements}
+        bounds={LIMITES}
+        elements={elementos}
         formula="A ∩ B"
-        outsideSets={outsideSets}
-        outsideUniverse={outsideUniverse}
+        outsideSets={fueraDeLosConjuntos}
+        outsideUniverse={fueraDelUniverso}
       />
     </svg>,
   );
 
-  const container = document.createElement("div");
-  container.innerHTML = markup;
-
-  const tooltip = container.querySelector("[data-region-tooltip]");
+  const tooltip = contenedor.querySelector("[data-region-tooltip]");
 
   if (!tooltip) {
     throw new Error("No se representó el tooltip.");
   }
 
-  return Array.from(tooltip.querySelectorAll("p"))
-    .map((paragraph) => paragraph.textContent)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const parrafos = tooltip.querySelectorAll("p");
+
+  return {
+    titulo: parrafos[0]?.textContent?.trim() ?? "",
+    contenido: parrafos[1]?.textContent?.trim() ?? "",
+  };
 }
 
-describe("Region tooltip representation", () => {
-  it("shows elements and cardinality", () => {
-    const text = tooltipText(["3", "4"]);
+describe("Información de las regiones", () => {
+  it("muestra la fórmula, los elementos y su cantidad", () => {
+    const tooltip = obtenerTooltip(["3", "4"]);
 
-    expect(text).toContain("Elementos: {3, 4}");
-    expect(text).toContain("Cardinalidad: 2");
+    expect(tooltip.titulo).toBe("A ∩ B");
+    expect(tooltip.contenido).toBe("{3, 4} · 2 elementos");
   });
 
-  it("represents an empty region", () => {
-    const text = tooltipText([]);
+  it("representa una región vacía con el símbolo de conjunto vacío", () => {
+    const tooltip = obtenerTooltip([]);
 
-    expect(text).toContain("Elementos: ∅");
-    expect(text).toContain("Cardinalidad: 0");
-    expect(text).toContain("Región vacía");
+    expect(tooltip.titulo).toBe("A ∩ B");
+    expect(tooltip.contenido).toBe("∅ · 0 elementos");
   });
 
-  it("distinguishes outside the sets from outside U", () => {
-    const text = tooltipText(["5"], false, true);
+  it("distingue el exterior de los conjuntos del exterior del universo", () => {
+    const fueraDeConjuntos = obtenerTooltip(["5"], {
+      fueraDeLosConjuntos: true,
+    });
 
-    expect(text).toContain("Dentro de U, fuera de los conjuntos");
-    expect(text).toContain("Cardinalidad: 1");
+    const fueraDeUniverso = obtenerTooltip([], {
+      fueraDelUniverso: true,
+    });
+
+    expect(fueraDeConjuntos.titulo).toBe("Fuera de los conjuntos");
+    expect(fueraDeConjuntos.contenido).toBe("{5} · 1 elemento");
+
+    expect(fueraDeUniverso.titulo).toBe("Fuera del universo U");
+    expect(fueraDeUniverso.contenido).toBe("Este espacio no pertenece a U");
   });
 
-  it("does not show zero cardinality outside U", () => {
-    const text = tooltipText([], true);
+  it("no representa el exterior del universo como un conjunto vacío", () => {
+    const tooltip = obtenerTooltip([], {
+      fueraDelUniverso: true,
+    });
 
-    expect(text).toContain("Fuera del universo U");
-    expect(text).not.toContain("Cardinalidad");
-    expect(text).not.toContain("Región vacía");
+    expect(tooltip.titulo).toBe("Fuera del universo U");
+    expect(tooltip.contenido).not.toContain("∅");
+    expect(tooltip.contenido).not.toContain("0 elementos");
   });
 
-  it("updates the represented information when elements change", () => {
-    expect(tooltipText(["3"])).toContain("Cardinalidad: 1");
-    expect(tooltipText(["3", "4"])).toContain("Cardinalidad: 2");
-    expect(tooltipText([])).toContain("Región vacía");
+  it.each([
+    {
+      elementos: ["3"],
+      esperado: "{3} · 1 elemento",
+    },
+    {
+      elementos: ["3", "4"],
+      esperado: "{3, 4} · 2 elementos",
+    },
+    {
+      elementos: [],
+      esperado: "∅ · 0 elementos",
+    },
+  ])("representa correctamente el contenido $esperado", ({ elementos, esperado }) => {
+    expect(obtenerTooltip(elementos).contenido).toBe(esperado);
   });
 });

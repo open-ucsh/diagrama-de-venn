@@ -8,26 +8,38 @@ import { createInitialDiagram } from "@/domain/venn/factories";
 import { saveSetDefinition } from "@/state/venn-element-actions";
 import { useVennStore } from "@/state/venn-store";
 
-function mountResult(formula: string) {
-  const container = document.createElement("div");
-  document.body.append(container);
-  const root = createRoot(container);
+function montarResultado(formula: string) {
+  const contenedor = document.createElement("div");
+  document.body.append(contenedor);
 
-  function render(value: string) {
+  const raiz = createRoot(contenedor);
+
+  function renderizar(valor: string): void {
     act(() => {
-      root.render(<FormulaElements formula={value} />);
+      raiz.render(<FormulaElements formula={valor} />);
     });
   }
 
-  render(formula);
+  renderizar(formula);
 
   return {
-    render,
-    text: () => (container.querySelector("summary")?.textContent ?? "").replace(/\s+/g, " ").trim(),
-    completeResult: () => container.querySelector("details > p")?.textContent ?? "",
-    dispose: () => {
-      act(() => root.unmount());
-      container.remove();
+    renderizar,
+
+    resultado: () => contenedor.querySelector("summary")?.textContent?.trim() ?? "",
+
+    cantidad: () =>
+      contenedor
+        .querySelector("[data-formula-elements] > span:last-child")
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim() ?? "",
+
+    resultadoCompleto: () => contenedor.querySelector("details > p")?.textContent?.trim() ?? "",
+
+    estaVisible: () => contenedor.querySelector("[data-formula-elements]") !== null,
+
+    desmontar: () => {
+      act(() => raiz.unmount());
+      contenedor.remove();
     },
   };
 }
@@ -38,6 +50,7 @@ beforeEach(() => {
   });
 
   let diagram = replaceSetElements(createInitialDiagram(), "set-a", "1, 2, 3");
+
   diagram = replaceSetElements(diagram, "set-b", "3, 4");
   diagram = replaceUniverseElements(diagram, "1, 2, 3, 4, 5");
 
@@ -50,91 +63,104 @@ beforeEach(() => {
   });
 });
 
-describe("Formula elements", () => {
-  it("updates when the formula changes", () => {
-    const view = mountResult("A ∩ B");
+describe("Elementos de la fórmula", () => {
+  it("actualiza el resultado cuando cambia la fórmula", () => {
+    const vista = montarResultado("A ∩ B");
 
     try {
-      expect(view.text()).toBe("Resultado: {3} · 1 elemento");
+      expect(vista.resultado()).toBe("{3}");
+      expect(vista.cantidad()).toBe("1 elemento");
 
-      view.render("A \\ B");
+      vista.renderizar("A \\ B");
 
-      expect(view.text()).toBe("Resultado: {1, 2} · 2 elementos");
+      expect(vista.resultado()).toBe("{1, 2}");
+      expect(vista.cantidad()).toBe("2 elementos");
     } finally {
-      view.dispose();
+      vista.desmontar();
     }
   });
 
-  it("updates automatically when elements change", () => {
-    const view = mountResult("A ∩ B");
+  it("actualiza el resultado cuando cambian los elementos", () => {
+    const vista = montarResultado("A ∩ B");
 
     try {
-      expect(view.text()).toBe("Resultado: {3} · 1 elemento");
+      expect(vista.resultado()).toBe("{3}");
+      expect(vista.cantidad()).toBe("1 elemento");
 
       act(() => {
         saveSetDefinition("set-b", "B", "4");
       });
 
-      expect(view.text()).toBe("Resultado: ∅ · 0 elementos");
+      expect(vista.estaVisible()).toBe(true);
+      expect(vista.resultado()).toBe("∅");
+      expect(vista.cantidad()).toBe("0 elementos");
     } finally {
-      view.dispose();
+      vista.desmontar();
     }
   });
 
-  it("queries the complement within U", () => {
-    const view = mountResult("(A ∪ B)'");
+  it("calcula el complemento dentro del universo", () => {
+    const vista = montarResultado("(A ∪ B)'");
 
     try {
-      expect(view.text()).toBe("Resultado: {5} · 1 elemento");
+      expect(vista.resultado()).toBe("{5}");
+      expect(vista.cantidad()).toBe("1 elemento");
     } finally {
-      view.dispose();
+      vista.desmontar();
     }
   });
 
-  it("hides the previous result for an invalid formula", () => {
-    const view = mountResult("A ∩ B");
+  it("oculta el resultado anterior cuando la fórmula es inválida", () => {
+    const vista = montarResultado("A ∩ B");
 
     try {
-      expect(view.text()).toBe("Resultado: {3} · 1 elemento");
+      expect(vista.estaVisible()).toBe(true);
+      expect(vista.resultado()).toBe("{3}");
 
-      view.render("A ∩");
+      vista.renderizar("A ∩");
 
-      expect(view.text()).toBe("");
+      expect(vista.estaVisible()).toBe(false);
+      expect(vista.resultado()).toBe("");
+      expect(vista.resultadoCompleto()).toBe("");
+      expect(vista.cantidad()).toBe("");
     } finally {
-      view.dispose();
+      vista.desmontar();
     }
   });
 
-  it("updates from selected regions before the formula is ready", () => {
-    const view = mountResult("");
+  it("muestra las regiones seleccionadas antes de tener una fórmula", () => {
+    const vista = montarResultado("");
 
     try {
-      expect(view.text()).toBe("");
+      expect(vista.estaVisible()).toBe(false);
 
       act(() => {
         useVennStore.getState().setRegionSelection(["region:set-a:set-b"]);
       });
 
-      expect(view.text()).toBe("Resultado: {3} · 1 elemento");
+      expect(vista.estaVisible()).toBe(true);
+      expect(vista.resultado()).toBe("{3}");
+      expect(vista.cantidad()).toBe("1 elemento");
 
       act(() => {
         useVennStore.getState().clearRegionSelection();
       });
 
-      expect(view.text()).toBe("");
+      expect(vista.estaVisible()).toBe(false);
     } finally {
-      view.dispose();
+      vista.desmontar();
     }
   });
 
-  it("provides the complete result in the expandable content", () => {
-    const view = mountResult("A ∪ B");
+  it("incluye el resultado completo en el contenido desplegable", () => {
+    const vista = montarResultado("A ∪ B");
 
     try {
-      expect(view.completeResult()).toBe("{1, 2, 3, 4}");
-      expect(view.text()).toBe("Resultado: {1, 2, 3, 4} · 4 elementos");
+      expect(vista.resultado()).toBe("{1, 2, 3, 4}");
+      expect(vista.resultadoCompleto()).toBe("{1, 2, 3, 4}");
+      expect(vista.cantidad()).toBe("4 elementos");
     } finally {
-      view.dispose();
+      vista.desmontar();
     }
   });
 });
