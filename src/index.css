@@ -70,10 +70,6 @@ summary:focus-visible {
   background: #fbfcfe;
 }
 
-.venn-workspace > header > div {
-  min-height: 4rem;
-}
-
 .venn-workspace__body {
   position: relative;
   display: grid;
@@ -190,17 +186,6 @@ summary:focus-visible {
 
 .venn-sets-panel__header > button {
   min-height: 3rem;
-  padding: 0.75rem 1rem;
-}
-
-.venn-sets-panel__header > button > span:first-child > span:first-child {
-  color: var(--color-brand-primary);
-  letter-spacing: normal;
-  text-transform: none;
-}
-
-.venn-sets-panel__desktop-header {
-  min-height: 3.25rem;
   padding: 0.75rem 1rem;
 }
 
