@@ -5,6 +5,13 @@ Todos los cambios relevantes de Diagrama de Venn se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y las versiones siguen [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.1.2](https://github.com/open-ucsh/web-diagrama-de-venn/compare/v1.1.1...v1.1.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **editor:** improve focus handling, recovery and async cleanup ([7a56983](https://github.com/open-ucsh/web-diagrama-de-venn/commit/7a569836f1421e7ca9b0e5d3ef8e9bfe8ddc8f9b))
+
 ## [1.1.1](https://github.com/open-ucsh/web-diagrama-de-venn/compare/v1.1.0...v1.1.1) (2026-10-13)
 
 
