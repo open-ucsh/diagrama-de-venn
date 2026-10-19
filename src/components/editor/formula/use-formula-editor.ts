@@ -1,38 +1,14 @@
-import { getErrorMessage } from "@/lib/errors";
-import { getExpressionSearchKey } from "@/domain/venn/expressions/expression-search-key";
-import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMinimumExpression } from "@/components/editor/formula/use-minimum-expression";
+import { type ChangeEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { useFormulaHistory } from "@/components/editor/formula/use-formula-history";
 import { parseVennExpression, VennExpressionError } from "@/domain/venn/expressions";
-import { getSelectedMask } from "@/domain/venn/expressions/expression-masks";
-import { ExpressionEngine } from "@/services/venn/expression-engine";
-import { findMinimumExpression } from "@/services/venn/find-minimum-expression";
-import { useVennExpression, type VennExpressionState } from "@/state/venn-expression";
 import { useVennStore } from "@/state/venn-store";
-
-const SEARCH_DELAY_MS = 200;
-const HISTORY_DELAY_MS = 700;
-
-interface CompletedSearch extends VennExpressionState {
-  attempt: number;
-}
-
-function createIdleSearch(key: string): VennExpressionState {
-  return {
-    key,
-    status: "idle",
-    text: "",
-    error: null,
-  };
-}
 
 export function useFormulaEditor() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const engineRef = useRef<ExpressionEngine | null>(null);
-  const engineErrorRef = useRef<Error | null>(null);
   const isEditingRef = useRef(false);
   const draftRef = useRef("");
-  const requestVersionRef = useRef(0);
   const focusFrameRef = useRef<number | null>(null);
 
   const diagram = useVennStore((state) => state.diagram);
@@ -44,40 +20,20 @@ export function useFormulaEditor() {
   const [draftError, setDraftError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [completedSearch, setCompletedSearch] = useState<CompletedSearch | null>(null);
 
   const { formulaHistory, saveFormulaToHistory, clearFormulaHistory, deleteFormulaFromHistory } =
     useFormulaHistory();
 
-  const namesKey = JSON.stringify(diagram.sets.map((set) => set.name));
-  const selectedMask = getSelectedMask(diagram, selectedRegionIds);
-  const hasSelection = selectedRegionIds.length > 0;
-  const searchKey = getExpressionSearchKey(diagram, selectedMask, hasSelection);
+  const { search, invalidateSearch } = useMinimumExpression({
+    diagram,
+    selectedRegionIds,
+    isEditing,
+    isEditingRef,
+    attempt,
+    saveFormulaToHistory,
+  });
 
   const diagramRef = useRef(diagram);
-  const latestSearchKeyRef = useRef(searchKey);
-
-  const search = useMemo<VennExpressionState>(() => {
-    if (isEditing || !hasSelection) {
-      return createIdleSearch(searchKey);
-    }
-
-    if (completedSearch?.key === searchKey && completedSearch.attempt === attempt) {
-      return {
-        key: completedSearch.key,
-        status: completedSearch.status,
-        text: completedSearch.text,
-        error: completedSearch.error,
-      };
-    }
-
-    return {
-      key: searchKey,
-      status: "searching",
-      text: "",
-      error: null,
-    };
-  }, [isEditing, hasSelection, searchKey, completedSearch, attempt]);
 
   const formula = isEditing ? draft : search.text;
   const error = isEditing ? draftError : null;
@@ -85,152 +41,15 @@ export function useFormulaEditor() {
 
   useLayoutEffect(() => {
     diagramRef.current = diagram;
-    latestSearchKeyRef.current = searchKey;
     formulaRef.current = formula;
-  }, [diagram, searchKey, formula]);
-
-  useLayoutEffect(() => {
-    useVennExpression.setState(search);
-  }, [search]);
-
-  useEffect(() => {
-    engineErrorRef.current = null;
-
-    const names = diagramRef.current.sets.map((set) => set.name);
-
-    if (names.length === 0) {
-      return;
-    }
-
-    let engine: ExpressionEngine;
-
-    try {
-      engine = new ExpressionEngine(names);
-      engineRef.current = engine;
-    } catch (error) {
-      engineErrorRef.current =
-        error instanceof Error ? error : new Error("No fue posible iniciar el motor de fórmulas.");
-
-      return;
-    }
-
-    return () => {
-      engine.dispose();
-
-      if (engineRef.current === engine) {
-        engineRef.current = null;
-      }
-    };
-  }, [namesKey]);
-
-  useEffect(() => {
-    const version = ++requestVersionRef.current;
-    let cancelled = false;
-
-    if (isEditing || !hasSelection) {
-      return;
-    }
-
-    const searchDiagram = diagramRef.current;
-
-    function isCurrent(): boolean {
-      return (
-        !cancelled &&
-        requestVersionRef.current === version &&
-        !isEditingRef.current &&
-        latestSearchKeyRef.current === searchKey
-      );
-    }
-
-    async function calculate(): Promise<void> {
-      if (!isCurrent()) {
-        return;
-      }
-
-      if (engineErrorRef.current) {
-        throw engineErrorRef.current;
-      }
-
-      const engine = engineRef.current;
-
-      if (!engine) {
-        throw new Error("El motor de fórmulas no está disponible.");
-      }
-
-      const result = await findMinimumExpression({
-        engine,
-        diagram: searchDiagram,
-        selectedMask,
-        isCurrent,
-      });
-
-      if (!result || !isCurrent()) {
-        return;
-      }
-
-      setCompletedSearch({
-        key: searchKey,
-        attempt,
-        status: "ready",
-        text: result.text,
-        error: null,
-      });
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void calculate().catch((error: unknown) => {
-        if (!isCurrent()) {
-          return;
-        }
-
-        setCompletedSearch({
-          key: searchKey,
-          attempt,
-          status: "error",
-          text: "",
-          error: getErrorMessage(error, "No fue posible calcular la fórmula."),
-        });
-      });
-    }, SEARCH_DELAY_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, [searchKey, selectedMask, hasSelection, isEditing, namesKey, attempt]);
-
-  useEffect(() => {
-    if (search.status !== "ready" || !search.text) {
-      return;
-    }
-
-    const version = requestVersionRef.current;
-
-    const timeoutId = window.setTimeout(() => {
-      if (
-        !isEditingRef.current &&
-        requestVersionRef.current === version &&
-        latestSearchKeyRef.current === search.key
-      ) {
-        saveFormulaToHistory(search.text);
-      }
-    }, HISTORY_DELAY_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [search, saveFormulaToHistory]);
+  }, [diagram, formula]);
 
   useEffect(() => {
     return () => {
-      requestVersionRef.current += 1;
-
       if (focusFrameRef.current !== null) {
         window.cancelAnimationFrame(focusFrameRef.current);
         focusFrameRef.current = null;
       }
-
-      useVennExpression.setState(createIdleSearch(""));
     };
   }, []);
 
@@ -259,8 +78,8 @@ export function useFormulaEditor() {
       return;
     }
 
-    requestVersionRef.current += 1;
     isEditingRef.current = true;
+    invalidateSearch();
 
     updateDraft(formulaRef.current);
     setDraftError(null);
@@ -268,8 +87,6 @@ export function useFormulaEditor() {
 
     // Invalida el resultado anterior aunque la selección no cambie.
     setAttempt((current) => current + 1);
-
-    useVennExpression.setState(createIdleSearch(latestSearchKeyRef.current));
   }
 
   function finishEditing(): void {
