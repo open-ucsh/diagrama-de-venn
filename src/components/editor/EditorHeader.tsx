@@ -2,6 +2,7 @@ import { Check, FileText, Pencil, Redo2, Undo2, X } from "lucide-react";
 import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { ExportMenu } from "@/components/editor/ExportMenu";
+import { KeyboardShortcutsHelp } from "@/components/editor/KeyboardShortcutsHelp";
 import { useHistoryShortcuts } from "@/components/editor/use-history-shortcuts";
 import { useVennStore } from "@/state/venn-store";
 
@@ -169,6 +170,7 @@ export function EditorHeader() {
 
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <ExportMenu />
+          <KeyboardShortcutsHelp />
 
           <span aria-hidden="true" className="mx-2 hidden h-8 w-px bg-border sm:block" />
 

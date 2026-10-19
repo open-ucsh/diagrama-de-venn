@@ -4,6 +4,7 @@ import { type KeyboardEvent, useId } from "react";
 import { FormulaElements } from "@/components/editor/formula/FormulaElements";
 import { FormulaHistoryMenu } from "@/components/editor/formula/FormulaHistoryMenu";
 import { useFormulaEditor } from "@/components/editor/formula/use-formula-editor";
+import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
 
 const FORMULA_SYMBOLS = [
   { label: "∪", value: " ∪ ", title: "Unión" },
@@ -45,6 +46,20 @@ export function FormulaBar() {
   const statusError = error ?? calculationError;
   const selectedCount = selectedRegionIds.length;
 
+  useKeyboardShortcut({
+    code: "Slash",
+    onTrigger: () => {
+      inputRef.current?.focus();
+    },
+  });
+
+  useKeyboardShortcut({
+    code: "Backspace",
+    shift: true,
+    enabled: hasFormula || selectedCount > 0,
+    onTrigger: clearFormula,
+  });
+
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key !== "Enter" || event.nativeEvent.isComposing) {
       return;
@@ -69,6 +84,7 @@ export function FormulaBar() {
           <input
             aria-describedby={statusId}
             aria-invalid={Boolean(error)}
+            aria-keyshortcuts="Control+/ Meta+/"
             autoComplete="off"
             className="venn-formula-input"
             id={inputId}
@@ -79,6 +95,7 @@ export function FormulaBar() {
             placeholder="Ejemplo: A ∪ B"
             ref={inputRef}
             spellCheck={false}
+            title="Enfocar fórmula (Ctrl/Cmd + /)"
             type="text"
             value={formula}
           />
@@ -86,9 +103,11 @@ export function FormulaBar() {
           {hasFormula && (
             <button
               aria-label="Limpiar fórmula"
+              aria-keyshortcuts="Control+Shift+Backspace Meta+Shift+Backspace"
               className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded text-text-muted hover:bg-surface-hover"
               onClick={clearFormula}
               onMouseDown={(event) => event.preventDefault()}
+              title="Limpiar fórmula (Ctrl/Cmd + Shift + Backspace)"
               type="button"
             >
               <X aria-hidden="true" className="size-3.5" />
