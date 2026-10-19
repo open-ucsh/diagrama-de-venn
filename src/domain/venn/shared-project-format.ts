@@ -1,3 +1,4 @@
+import { isRecord } from "@/lib/validation";
 import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import { getRegionIdsFromMask, getSelectedMask } from "@/domain/venn/expressions/expression-masks";
 import {
@@ -27,10 +28,6 @@ interface CompactSharedProject {
   s: SharedSet[];
   r: number;
   e?: SharedElement[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isValidColor(value: unknown): value is string {

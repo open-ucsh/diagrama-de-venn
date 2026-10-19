@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/lib/errors";
 import { getExpressionSearchKey } from "@/domain/venn/expressions/expression-search-key";
 import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
@@ -23,10 +24,6 @@ function createIdleSearch(key: string): VennExpressionState {
     text: "",
     error: null,
   };
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export function useFormulaEditor() {

@@ -1,3 +1,4 @@
+import { isRecord } from "@/lib/validation";
 import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import type { VennDiagram, VennElement, VennSet } from "@/domain/venn/models";
 import { getVennRegions } from "@/domain/venn/regions";
@@ -8,10 +9,6 @@ export interface VennProjectFile {
   version: 1;
   diagram: VennDiagram;
   selectedRegionIds: string[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isFiniteNumber(value: unknown): value is number {

@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/lib/errors";
 import { ChevronDown, Pencil, Plus } from "lucide-react";
 import { useId, useState } from "react";
 
@@ -12,10 +13,6 @@ import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import { useVennStore } from "@/state/venn-store";
 
 type EditingTarget = { kind: "set"; id: string } | { kind: "universe" } | null;
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
 
 export function SetsPanel() {
   const panelId = useId();

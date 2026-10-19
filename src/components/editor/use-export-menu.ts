@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/lib/errors";
 import { getExpressionSearchKey } from "@/domain/venn/expressions/expression-search-key";
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
@@ -17,10 +18,6 @@ const COPY_FEEDBACK_DURATION = 1_500;
 interface ExportMessage {
   text: string;
   type: "success" | "error";
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function useCopyFeedback() {
