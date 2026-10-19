@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { FormulaElements } from "@/components/editor/formula/FormulaElements";
 import { replaceSetElements, replaceUniverseElements } from "@/domain/venn/elements";
 import { createInitialDiagram } from "@/domain/venn/factories";
-import { saveSetDefinition } from "@/state/venn-element-actions";
 import { useVennStore } from "@/state/venn-store";
 
 function montarResultado(formula: string) {
@@ -88,7 +87,7 @@ describe("Elementos de la fórmula", () => {
       expect(vista.cantidad()).toBe("1 elemento");
 
       act(() => {
-        saveSetDefinition("set-b", "B", "4");
+        useVennStore.getState().saveSetDefinition("set-b", "B", "4");
       });
 
       expect(vista.estaVisible()).toBe(true);

@@ -9,7 +9,6 @@ import { formatElementLabels, getSetElements } from "@/domain/venn/elements";
 import { getSetColor } from "@/domain/venn/set-colors";
 import type { VennSet } from "@/domain/venn/models";
 import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
-import { saveSetDefinition, saveUniverseDefinition } from "@/state/venn-element-actions";
 import { useVennStore } from "@/state/venn-store";
 
 type EditingTarget = { kind: "set"; id: string } | { kind: "universe" } | null;
@@ -23,6 +22,8 @@ export function SetsPanel() {
 
   const diagram = useVennStore((state) => state.diagram);
   const createSet = useVennStore((state) => state.createSet);
+  const saveSetDefinition = useVennStore((state) => state.saveSetDefinition);
+  const saveUniverseDefinition = useVennStore((state) => state.saveUniverseDefinition);
   const removeSet = useVennStore((state) => state.removeSet);
   const setSetColor = useVennStore((state) => state.setSetColor);
   const toggleSetVisibility = useVennStore((state) => state.toggleSetVisibility);
