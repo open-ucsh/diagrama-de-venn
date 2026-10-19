@@ -1,3 +1,4 @@
+import { setSetColor, toggleSetVisibility } from "@/domain/venn/operations";
 import { replaceUniverseElements, updateSetDefinition } from "@/domain/venn/elements";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -232,48 +233,18 @@ export const useVennStore = create<VennStore>()(
         ),
 
       setSetColor: (setId, color) =>
-        set((state) => {
-          const currentSet = state.diagram.sets.find((current) => current.id === setId);
-
-          if (!currentSet || currentSet.color === color) {
-            return state;
-          }
-
-          return recordHistory(state, {
-            diagram: {
-              ...state.diagram,
-              metadata: {
-                ...state.diagram.metadata,
-                updatedAt: new Date().toISOString(),
-              },
-              sets: state.diagram.sets.map((current) =>
-                current.id === setId ? { ...current, color } : current,
-              ),
-            },
-          });
-        }),
+        set((state) =>
+          recordHistory(state, {
+            diagram: setSetColor(state.diagram, setId, color),
+          }),
+        ),
 
       toggleSetVisibility: (setId) =>
-        set((state) => {
-          const exists = state.diagram.sets.some((current) => current.id === setId);
-
-          if (!exists) {
-            return state;
-          }
-
-          return recordHistory(state, {
-            diagram: {
-              ...state.diagram,
-              metadata: {
-                ...state.diagram.metadata,
-                updatedAt: new Date().toISOString(),
-              },
-              sets: state.diagram.sets.map((current) =>
-                current.id === setId ? { ...current, hidden: !current.hidden } : current,
-              ),
-            },
-          });
-        }),
+        set((state) =>
+          recordHistory(state, {
+            diagram: toggleSetVisibility(state.diagram, setId),
+          }),
+        ),
 
       createElement: (label, setIds) =>
         set((state) =>

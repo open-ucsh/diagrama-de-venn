@@ -222,3 +222,27 @@ export function removeElement(diagram: VennDiagram, elementId: string): VennDiag
     diagram.elements.filter((element) => element.id !== elementId),
   );
 }
+
+export function setSetColor(diagram: VennDiagram, setId: string, color: string): VennDiagram {
+  const currentSet = diagram.sets.find((set) => set.id === setId);
+
+  if (!currentSet || currentSet.color === color) {
+    return diagram;
+  }
+
+  return withUpdatedSets(
+    diagram,
+    diagram.sets.map((set) => (set.id === setId ? { ...set, color } : set)),
+  );
+}
+
+export function toggleSetVisibility(diagram: VennDiagram, setId: string): VennDiagram {
+  if (!diagram.sets.some((set) => set.id === setId)) {
+    return diagram;
+  }
+
+  return withUpdatedSets(
+    diagram,
+    diagram.sets.map((set) => (set.id === setId ? { ...set, hidden: !set.hidden } : set)),
+  );
+}
