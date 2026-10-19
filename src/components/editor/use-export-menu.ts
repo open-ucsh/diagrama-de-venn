@@ -1,3 +1,4 @@
+import { useDismissableLayer } from "@/hooks/use-dismissable-layer";
 import { getErrorMessage } from "@/lib/errors";
 import { getExpressionSearchKey } from "@/domain/venn/expressions/expression-search-key";
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -101,37 +102,11 @@ export function useExportMenu() {
     dismissMenu(true);
   }, [dismissMenu]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) {
-        return;
-      }
-
-      event.preventDefault();
-      closeMenu();
-    }
-
-    function handlePointerDown(event: PointerEvent): void {
-      const details = detailsRef.current;
-
-      if (details && event.target instanceof Node && !details.contains(event.target)) {
-        // Un clic fuera conserva el foco en el destino del usuario.
-        dismissMenu(false);
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("pointerdown", handlePointerDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [isOpen, closeMenu, dismissMenu]);
+  useDismissableLayer({
+    containerRef: detailsRef,
+    isOpen: () => isOpen,
+    onDismiss: dismissMenu,
+  });
 
   function showMessage(text: string, type: ExportMessage["type"]): void {
     if (mountedRef.current) {

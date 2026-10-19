@@ -1,3 +1,4 @@
+import { useDismissableLayer } from "@/hooks/use-dismissable-layer";
 import { Check, Clock3, Copy, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
@@ -57,43 +58,21 @@ export function FormulaHistoryMenu({
     }
   }, []);
 
+  useDismissableLayer({
+    containerRef: detailsRef,
+    isOpen: () => detailsRef.current?.open ?? false,
+    onDismiss: closeMenu,
+  });
+
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (
-        !detailsRef.current?.open ||
-        event.key !== "Escape" ||
-        event.defaultPrevented ||
-        event.isComposing
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      closeMenu(true);
-    }
-
-    function handlePointerDown(event: PointerEvent): void {
-      const details = detailsRef.current;
-
-      if (details?.open && event.target instanceof Node && !details.contains(event.target)) {
-        closeMenu(false);
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("pointerdown", handlePointerDown);
-
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("pointerdown", handlePointerDown);
-
       copyRequestRef.current += 1;
 
       if (copyTimeoutRef.current !== null) {
         clearTimeout(copyTimeoutRef.current);
       }
     };
-  }, [closeMenu]);
+  }, []);
 
   function resetCopyFeedback(): void {
     copyRequestRef.current += 1;

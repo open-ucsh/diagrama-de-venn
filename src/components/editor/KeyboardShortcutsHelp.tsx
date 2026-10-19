@@ -1,3 +1,4 @@
+import { useDismissableLayer } from "@/hooks/use-dismissable-layer";
 import { Keyboard, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -177,52 +178,23 @@ export function KeyboardShortcutsHelp() {
   const [isOpen, setIsOpen] = useState(false);
   const [platform, setPlatform] = useState<Platform>(getInitialPlatform);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    closeButtonRef.current?.focus();
-
-    function closeAndRestoreFocus(): void {
+  useDismissableLayer({
+    containerRef,
+    isOpen: () => isOpen,
+    dismissOnFocusOutside: true,
+    onDismiss: (restoreFocus) => {
       setIsOpen(false);
-      triggerRef.current?.focus();
-    }
 
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) {
-        return;
+      if (restoreFocus) {
+        triggerRef.current?.focus();
       }
+    },
+  });
 
-      event.preventDefault();
-      closeAndRestoreFocus();
+  useEffect(() => {
+    if (isOpen) {
+      closeButtonRef.current?.focus();
     }
-
-    function handlePointerDown(event: PointerEvent): void {
-      const container = containerRef.current;
-
-      if (container && event.target instanceof Node && !container.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-
-    function handleFocusIn(event: FocusEvent): void {
-      const container = containerRef.current;
-
-      if (container && event.target instanceof Node && !container.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("focusin", handleFocusIn);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("focusin", handleFocusIn);
-    };
   }, [isOpen]);
 
   function closePanel(): void {
