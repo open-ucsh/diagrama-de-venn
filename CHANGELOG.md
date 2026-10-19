@@ -5,6 +5,14 @@ Todos los cambios relevantes de Diagrama de Venn se documentan en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y las versiones siguen [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.2.0](https://github.com/open-ucsh/web-diagrama-de-venn/compare/v1.1.2...v1.2.0) (2026-10-19)
+
+
+### Features
+
+* **editor:** add keyboard shortcuts and shortcut help ([ffb937f](https://github.com/open-ucsh/web-diagrama-de-venn/commit/ffb937f4e16e0df14328b9b201f95e8be1480f5d))
+* integrate develop and improve set element editing ([7af3d9f](https://github.com/open-ucsh/web-diagrama-de-venn/commit/7af3d9faaf5b0b52967d35b9e710ec764551be7d))
+
 ## [1.1.2](https://github.com/open-ucsh/web-diagrama-de-venn/compare/v1.1.1...v1.1.2) (2026-10-18)
 
 
