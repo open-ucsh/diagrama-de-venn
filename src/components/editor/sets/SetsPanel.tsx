@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { DefinitionEditor } from "@/components/editor/sets/DefinitionEditor";
 import { SetPanelItem } from "@/components/editor/sets/SetPanelItem";
 import { getNextSetName, getNextSetPosition } from "@/components/editor/sets/set-defaults";
+import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
 import { formatElementLabels, getSetElements } from "@/domain/venn/elements";
 import { DEFAULT_SET_COLORS } from "@/domain/venn/factories";
 import type { VennSet } from "@/domain/venn/models";
@@ -32,7 +33,9 @@ export function SetsPanel() {
 
   const [editing, setEditing] = useState<EditingTarget>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
-  const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(
+    () => window.matchMedia("(min-width: 1024px)").matches,
+  );
   const [announcement, setAnnouncement] = useState("");
 
   const { sets } = diagram;
@@ -41,6 +44,14 @@ export function SetsPanel() {
   const universeLabels = diagram.elements.map((element) => element.label);
   const universePreview = formatElementLabels(universeLabels);
   const isEditingUniverse = editing?.kind === "universe";
+
+  useKeyboardShortcut({
+    code: "Digit1",
+    shift: true,
+    onTrigger: () => {
+      setIsPanelOpen((open) => !open);
+    },
+  });
 
   function cancelEditing(): void {
     setEditing(null);
@@ -57,7 +68,7 @@ export function SetsPanel() {
     }
 
     setPanelError(null);
-    setIsMobilePanelOpen(true);
+    setIsPanelOpen(true);
 
     try {
       const name = getNextSetName(sets);
@@ -135,9 +146,11 @@ export function SetsPanel() {
       <header className="venn-sets-panel__header">
         <button
           aria-controls={panelId}
-          aria-expanded={isMobilePanelOpen}
-          className="flex w-full items-center gap-3 text-left lg:hidden"
-          onClick={() => setIsMobilePanelOpen((open) => !open)}
+          aria-expanded={isPanelOpen}
+          aria-keyshortcuts="Control+Shift+1 Meta+Shift+1"
+          className="flex w-full items-center gap-3 rounded-md text-left"
+          onClick={() => setIsPanelOpen((open) => !open)}
+          title="Mostrar u ocultar conjuntos (Ctrl/Cmd + Shift + 1)"
           type="button"
         >
           <span className="min-w-0 flex-1 text-sm font-semibold text-brand-primary">Conjuntos</span>
@@ -150,26 +163,14 @@ export function SetsPanel() {
             aria-hidden="true"
             className={[
               "size-4 text-text-muted transition-transform",
-              isMobilePanelOpen ? "rotate-180" : "",
+              isPanelOpen ? "rotate-180" : "",
             ].join(" ")}
           />
         </button>
-
-        <div className="venn-sets-panel__desktop-header hidden items-center justify-between lg:flex">
-          <p className="text-sm font-semibold text-brand-primary">Conjuntos</p>
-
-          <span className="text-xs tabular-nums text-text-muted">
-            {sets.length}/{MAX_SETS}
-          </span>
-        </div>
       </header>
 
       <div
-        className={[
-          "venn-sets-panel__content",
-          isMobilePanelOpen ? "block" : "hidden",
-          "lg:block",
-        ].join(" ")}
+        className={["venn-sets-panel__content", isPanelOpen ? "block" : "hidden"].join(" ")}
         id={panelId}
       >
         {sets.map((set, index) => (

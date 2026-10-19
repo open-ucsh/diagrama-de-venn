@@ -1,6 +1,8 @@
 import { Check, Clock3, Copy, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
+import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+
 const COPY_FEEDBACK_DURATION = 1_500;
 
 interface FormulaHistoryMenuProps {
@@ -25,6 +27,21 @@ export function FormulaHistoryMenu({
 
   const [copiedFormula, setCopiedFormula] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+
+  useKeyboardShortcut({
+    code: "Digit3",
+    shift: true,
+    onTrigger: () => {
+      const details = detailsRef.current;
+
+      if (!details) {
+        return;
+      }
+
+      details.open = !details.open;
+      details.querySelector("summary")?.focus();
+    },
+  });
 
   const closeMenu = useCallback((restoreFocus: boolean): void => {
     const details = detailsRef.current;
@@ -149,8 +166,9 @@ export function FormulaHistoryMenu({
       <summary
         aria-controls={panelId}
         aria-label="Abrir historial de fórmulas"
+        aria-keyshortcuts="Control+Shift+3 Meta+Shift+3"
         className="flex h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface hover:text-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary [&::-webkit-details-marker]:hidden"
-        title="Historial de fórmulas"
+        title="Historial de fórmulas (Ctrl/Cmd + Shift + 3)"
       >
         <Clock3 aria-hidden="true" className="size-4" />
         <span className="hidden sm:inline">Historial</span>
@@ -197,10 +215,7 @@ export function FormulaHistoryMenu({
               const copied = copiedFormula === formula;
 
               return (
-                <li
-                  className="flex items-center gap-1 rounded-lg px-1 transition-colors hover:bg-surface"
-                  key={formula}
-                >
+                <li className="flex items-center gap-1 rounded-md hover:bg-surface" key={formula}>
                   <button
                     className={[
                       "min-w-0 flex-1 rounded-md px-2 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-primary",
@@ -221,7 +236,7 @@ export function FormulaHistoryMenu({
                       </span>
 
                       <span className="min-w-0 flex-1">
-                        <span className="block break-all font-mono text-sm font-medium leading-5 text-text">
+                        <span className="block font-mono text-sm leading-5 font-medium break-all text-text">
                           {formula}
                         </span>
 
