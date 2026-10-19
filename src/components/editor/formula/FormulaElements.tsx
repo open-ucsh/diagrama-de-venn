@@ -26,20 +26,23 @@ export function FormulaElements({ formula }: FormulaElementsProps) {
   const result = formatElementLabels(elements.map((element) => element.label));
 
   return (
-    <details className="mt-1 text-xs text-brand-primary" data-formula-elements>
-      <summary className="flex cursor-pointer list-none items-baseline gap-1.5 rounded py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary">
-        <span className="shrink-0 font-semibold">Resultado:</span>{" "}
-        <span className="min-w-0 flex-1 truncate font-mono" title={result}>
-          {result}
-        </span>{" "}
-        <span className="shrink-0 text-text-muted">
-          · {elements.length} {elements.length === 1 ? "elemento" : "elementos"}
-        </span>
-      </summary>
+    <div className="venn-formula-result" data-formula-elements>
+      <span className="shrink-0 text-xs text-text-muted">Resultado</span>
 
-      <p className="max-h-24 overflow-y-auto wrap-break-words rounded-md bg-surface px-2.5 py-2 font-mono leading-5">
-        {result}
-      </p>
-    </details>
+      <details className="venn-result-details">
+        <summary
+          className="cursor-pointer truncate rounded font-mono text-sm focus-visible:outline-2 focus-visible:outline-brand-primary"
+          title="Ver resultado completo"
+        >
+          {result}
+        </summary>
+
+        <p className="venn-result-expanded">{result}</p>
+      </details>
+
+      <span className="shrink-0 text-xs tabular-nums text-text-muted">
+        {elements.length} {elements.length === 1 ? "elemento" : "elementos"}
+      </span>
+    </div>
   );
 }

@@ -4,38 +4,41 @@ import { createInitialDiagram, createVennElement } from "@/domain/venn/factories
 import { addElement } from "@/domain/venn/operations";
 import { consumeSharedProject, createShareUrl } from "@/services/venn/share-project";
 
-describe("Shared Venn projects", () => {
+describe("Proyectos de Venn compartidos", () => {
   let originalUrl: string;
+  let originalHistoryState: unknown;
 
   beforeEach(() => {
     originalUrl = window.location.href;
+    originalHistoryState = window.history.state;
+
     window.history.replaceState({}, "", "/?keep=1#section=overview");
   });
 
   afterEach(() => {
-    window.history.replaceState({}, "", originalUrl);
+    window.history.replaceState(originalHistoryState, "", originalUrl);
   });
 
-  it("returns null when the URL has no shared project", () => {
-    const before = window.location.href;
+  it("devuelve null y conserva la URL cuando no hay un proyecto compartido", () => {
+    const originalLocation = window.location.href;
 
     expect(consumeSharedProject()).toBeNull();
-    expect(window.location.href).toBe(before);
+    expect(window.location.href).toBe(originalLocation);
   });
 
-  it("creates a link without modifying the current URL", () => {
-    const before = window.location.href;
-    const link = new URL(createShareUrl(createInitialDiagram(), []));
+  it("crea un enlace sin modificar la URL actual y conserva sus parámetros", () => {
+    const originalLocation = window.location.href;
 
-    expect(window.location.href).toBe(before);
-    expect(link.searchParams.get("keep")).toBe("1");
+    const url = new URL(createShareUrl(createInitialDiagram(), []));
+    const hash = new URLSearchParams(url.hash.slice(1));
 
-    const hash = new URLSearchParams(link.hash.slice(1));
+    expect(window.location.href).toBe(originalLocation);
+    expect(url.searchParams.get("keep")).toBe("1");
     expect(hash.get("section")).toBe("overview");
     expect(hash.has("venn")).toBe(true);
   });
 
-  it("preserves names, colors, visibility, memberships and selected regions", () => {
+  it("conserva nombres, colores, visibilidad, pertenencias y regiones seleccionadas", () => {
     const initialDiagram = createInitialDiagram("Encuesta de estudiantes");
     const diagram = addElement(
       {
@@ -47,14 +50,15 @@ describe("Shared Venn projects", () => {
       },
       createVennElement("Martín", ["set-a", "set-b"]),
     );
+    const selectedRegionIds = ["outside", "region:set-a:set-b"];
 
-    const selection = ["outside", "region:set-a:set-b"];
-    window.history.replaceState({}, "", createShareUrl(diagram, selection));
+    window.history.replaceState({}, "", createShareUrl(diagram, selectedRegionIds));
 
     const project = consumeSharedProject();
 
-    expect(project).not.toBeNull();
-    if (!project) throw new Error("Expected a shared project.");
+    if (!project) {
+      throw new Error("No se recuperó el proyecto compartido.");
+    }
 
     expect(project.diagram.metadata.name).toBe(diagram.metadata.name);
     expect(
@@ -71,22 +75,27 @@ describe("Shared Venn projects", () => {
       })),
     );
 
-    expect(project.diagram.elements).toHaveLength(1);
-    expect(project.diagram.elements[0]?.label).toBe("Martín");
-    expect(project.diagram.elements[0]?.setIds).toEqual(project.diagram.sets.map((set) => set.id));
+    expect(project.diagram.elements).toEqual([
+      expect.objectContaining({
+        label: "Martín",
+        setIds: project.diagram.sets.map((set) => set.id),
+      }),
+    ]);
 
-    const selectedMemberships = project.selectedRegionIds.map((regionId) =>
-      regionId === "outside"
-        ? []
-        : project.diagram.sets
-            .filter((set) => regionId.split(":").slice(1).includes(set.id))
-            .map((set) => set.name),
-    );
+    const selectedMemberships = project.selectedRegionIds.map((regionId) => {
+      if (regionId === "outside") {
+        return [];
+      }
+
+      const setIds = regionId.split(":").slice(1);
+
+      return project.diagram.sets.filter((set) => setIds.includes(set.id)).map((set) => set.name);
+    });
 
     expect(selectedMemberships).toEqual([[], ["A", "B"]]);
   });
 
-  it("consumes the shared parameter once and preserves other URL parameters", () => {
+  it("consume el proyecto una sola vez y conserva los demás parámetros de la URL", () => {
     window.history.replaceState({}, "", createShareUrl(createInitialDiagram(), []));
 
     expect(consumeSharedProject()).not.toBeNull();
@@ -100,13 +109,17 @@ describe("Shared Venn projects", () => {
     expect(consumeSharedProject()).toBeNull();
   });
 
-  it("removes a malformed shared parameter even when parsing fails", () => {
+  it("elimina el parámetro compartido malformado aunque falle su lectura", () => {
     window.history.replaceState({}, "", "/?keep=1#section=overview&venn=%25");
 
     expect(() => consumeSharedProject()).toThrow();
 
-    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const url = new URL(window.location.href);
+    const hash = new URLSearchParams(url.hash.slice(1));
+
     expect(hash.has("venn")).toBe(false);
     expect(hash.get("section")).toBe("overview");
+    expect(url.searchParams.get("keep")).toBe("1");
+    expect(consumeSharedProject()).toBeNull();
   });
 });

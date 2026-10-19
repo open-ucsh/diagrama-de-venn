@@ -1,236 +1,306 @@
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { useFormulaHistory } from "@/components/editor/formula/use-formula-history";
 import { parseVennExpression, VennExpressionError } from "@/domain/venn/expressions";
 import { getSelectedMask } from "@/domain/venn/expressions/expression-masks";
 import { ExpressionEngine } from "@/services/venn/expression-engine";
+import { findMinimumExpression } from "@/services/venn/find-minimum-expression";
+import { useVennExpression, type VennExpressionState } from "@/state/venn-expression";
 import { useVennStore } from "@/state/venn-store";
-import { useVennExpression } from "@/state/venn-expression";
 
-import { useFormulaHistory } from "./use-formula-history";
+const SEARCH_DELAY_MS = 200;
+const HISTORY_DELAY_MS = 700;
 
-interface SearchState {
-  key: string;
-  status: "idle" | "searching" | "ready" | "error";
-  text: string;
-  error: string | null;
+interface CompletedSearch extends VennExpressionState {
+  attempt: number;
+}
+
+function createIdleSearch(key: string): VennExpressionState {
+  return {
+    key,
+    status: "idle",
+    text: "",
+    error: null,
+  };
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export function useFormulaEditor() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const isEditingRef = useRef(false);
   const engineRef = useRef<ExpressionEngine | null>(null);
+  const engineErrorRef = useRef<Error | null>(null);
+  const isEditingRef = useRef(false);
+  const draftRef = useRef("");
+  const requestVersionRef = useRef(0);
+  const focusFrameRef = useRef<number | null>(null);
 
   const diagram = useVennStore((state) => state.diagram);
   const selectedRegionIds = useVennStore((state) => state.selectedRegionIds);
   const setRegionSelection = useVennStore((state) => state.setRegionSelection);
   const clearRegionSelection = useVennStore((state) => state.clearRegionSelection);
 
-  const [formula, setFormula] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-
-  const [search, setSearch] = useState<SearchState>({
-    key: "",
-    status: "idle",
-    text: "",
-    error: null,
-  });
+  const [attempt, setAttempt] = useState(0);
+  const [completedSearch, setCompletedSearch] = useState<CompletedSearch | null>(null);
 
   const { formulaHistory, saveFormulaToHistory, clearFormulaHistory, deleteFormulaFromHistory } =
     useFormulaHistory();
 
-  const setsKey = JSON.stringify(diagram.sets.map((set) => ({ id: set.id, name: set.name })));
-
-  const selectedMask = useMemo(
-    () => getSelectedMask(diagram, selectedRegionIds),
-    [diagram, selectedRegionIds],
-  );
-
+  const namesKey = JSON.stringify(diagram.sets.map((set) => set.name));
+  const setsKey = JSON.stringify(diagram.sets.map(({ id, name }) => ({ id, name })));
+  const selectedMask = getSelectedMask(diagram, selectedRegionIds);
   const hasSelection = selectedRegionIds.length > 0;
   const searchKey = JSON.stringify([setsKey, selectedMask, hasSelection]);
+
+  const diagramRef = useRef(diagram);
   const latestSearchKeyRef = useRef(searchKey);
 
-  latestSearchKeyRef.current = searchKey;
-  useEffect(() => {
-    useVennExpression.setState(search);
-  }, [search]);
-
-  useEffect(() => {
-    engineRef.current?.dispose();
-    engineRef.current = null;
-
-    if (diagram.sets.length === 0) {
-      return;
+  const search = useMemo<VennExpressionState>(() => {
+    if (isEditing || !hasSelection) {
+      return createIdleSearch(searchKey);
     }
 
-    try {
-      engineRef.current = new ExpressionEngine(diagram.sets.map((set) => set.name));
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "No fue posible iniciar el motor de fórmulas.",
-      );
+    if (completedSearch?.key === searchKey && completedSearch.attempt === attempt) {
+      return {
+        key: completedSearch.key,
+        status: completedSearch.status,
+        text: completedSearch.text,
+        error: completedSearch.error,
+      };
     }
 
-    return () => {
-      engineRef.current?.dispose();
-      engineRef.current = null;
-    };
-    // Positions, colors and elements do not change the expression engine.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setsKey]);
-
-  useEffect(() => {
-    if (isEditing) {
-      return;
-    }
-
-    let cancelled = false;
-
-    function isCurrent() {
-      return !cancelled && !isEditingRef.current && latestSearchKeyRef.current === searchKey;
-    }
-
-    if (!hasSelection) {
-      setFormula("");
-      setError(null);
-      setSearch({
-        key: searchKey,
-        status: "idle",
-        text: "",
-        error: null,
-      });
-
-      return;
-    }
-
-    setFormula("");
-    setError(null);
-    setSearch({
+    return {
       key: searchKey,
       status: "searching",
       text: "",
       error: null,
-    });
+    };
+  }, [isEditing, hasSelection, searchKey, completedSearch, attempt]);
 
-    const timeoutId = window.setTimeout(() => {
-      async function calculate() {
-        const engine = engineRef.current;
+  const formula = isEditing ? draft : search.text;
+  const error = isEditing ? draftError : null;
+  const formulaRef = useRef(formula);
 
-        if (!engine) {
-          throw new Error("El motor de fórmulas no está disponible.");
-        }
+  useLayoutEffect(() => {
+    diagramRef.current = diagram;
+    latestSearchKeyRef.current = searchKey;
+    formulaRef.current = formula;
+  }, [diagram, searchKey, formula]);
 
-        // Continue beyond seven operations when required.
-        // Each response gives the UI a chance to discard an outdated request.
-        for (let limit = 3; limit <= 127; limit += 1) {
-          if (!isCurrent()) {
-            return;
-          }
+  useLayoutEffect(() => {
+    useVennExpression.setState(search);
+  }, [search]);
 
-          const result = await engine.findMinimum(selectedMask, limit);
+  useEffect(() => {
+    engineErrorRef.current = null;
 
-          if (!isCurrent()) {
-            return;
-          }
+    const names = diagramRef.current.sets.map((set) => set.name);
 
-          if (!result) {
-            continue;
-          }
+    if (names.length === 0) {
+      return;
+    }
 
-          // Verify that the generated text is accepted by the existing parser
-          // and reproduces exactly the requested selection.
-          const parsed = parseVennExpression(diagram, result.text);
-          const parsedMask = getSelectedMask(diagram, parsed.regionIds);
+    let engine: ExpressionEngine;
 
-          if (parsedMask !== selectedMask) {
-            throw new Error("La fórmula calculada no coincide con las regiones seleccionadas.");
-          }
+    try {
+      engine = new ExpressionEngine(names);
+      engineRef.current = engine;
+    } catch (error) {
+      engineErrorRef.current =
+        error instanceof Error ? error : new Error("No fue posible iniciar el motor de fórmulas.");
 
-          setFormula(result.text);
-          setError(null);
-          setSearch({
-            key: searchKey,
-            status: "ready",
-            text: result.text,
-            error: null,
-          });
+      return;
+    }
 
-          return;
-        }
+    return () => {
+      engine.dispose();
 
-        throw new Error("No fue posible encontrar una fórmula mínima.");
+      if (engineRef.current === engine) {
+        engineRef.current = null;
+      }
+    };
+  }, [namesKey]);
+
+  useEffect(() => {
+    const version = ++requestVersionRef.current;
+    let cancelled = false;
+
+    if (isEditing || !hasSelection) {
+      return;
+    }
+
+    const searchDiagram = diagramRef.current;
+
+    function isCurrent(): boolean {
+      return (
+        !cancelled &&
+        requestVersionRef.current === version &&
+        !isEditingRef.current &&
+        latestSearchKeyRef.current === searchKey
+      );
+    }
+
+    async function calculate(): Promise<void> {
+      if (!isCurrent()) {
+        return;
       }
 
-      void calculate().catch((caughtError: unknown) => {
+      if (engineErrorRef.current) {
+        throw engineErrorRef.current;
+      }
+
+      const engine = engineRef.current;
+
+      if (!engine) {
+        throw new Error("El motor de fórmulas no está disponible.");
+      }
+
+      const result = await findMinimumExpression({
+        engine,
+        diagram: searchDiagram,
+        selectedMask,
+        isCurrent,
+      });
+
+      if (!result || !isCurrent()) {
+        return;
+      }
+
+      setCompletedSearch({
+        key: searchKey,
+        attempt,
+        status: "ready",
+        text: result.text,
+        error: null,
+      });
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void calculate().catch((error: unknown) => {
         if (!isCurrent()) {
           return;
         }
 
-        const message =
-          caughtError instanceof Error
-            ? caughtError.message
-            : "No fue posible calcular la fórmula.";
-
-        setSearch({
+        setCompletedSearch({
           key: searchKey,
+          attempt,
           status: "error",
           text: "",
-          error: message,
+          error: getErrorMessage(error, "No fue posible calcular la fórmula."),
         });
       });
-    }, 200);
+    }, SEARCH_DELAY_MS);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-    // Only names, order and selected regions affect the calculation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchKey, isEditing]);
+  }, [searchKey, selectedMask, hasSelection, isEditing, namesKey, attempt]);
 
   useEffect(() => {
-    if (isEditing || search.key !== searchKey || search.status !== "ready" || !search.text) {
+    if (search.status !== "ready" || !search.text) {
       return;
     }
 
+    const version = requestVersionRef.current;
+
     const timeoutId = window.setTimeout(() => {
-      if (!isEditingRef.current && latestSearchKeyRef.current === search.key) {
+      if (
+        !isEditingRef.current &&
+        requestVersionRef.current === version &&
+        latestSearchKeyRef.current === search.key
+      ) {
         saveFormulaToHistory(search.text);
       }
-    }, 700);
+    }, HISTORY_DELAY_MS);
 
-    return () => window.clearTimeout(timeoutId);
-  }, [isEditing, search, searchKey, saveFormulaToHistory]);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [search, saveFormulaToHistory]);
 
-  function beginEditing() {
-    isEditingRef.current = true;
-    setIsEditing(true);
+  useEffect(() => {
+    return () => {
+      requestVersionRef.current += 1;
+
+      if (focusFrameRef.current !== null) {
+        window.cancelAnimationFrame(focusFrameRef.current);
+        focusFrameRef.current = null;
+      }
+
+      useVennExpression.setState(createIdleSearch(""));
+    };
+  }, []);
+
+  function updateDraft(value: string): void {
+    draftRef.current = value;
+    setDraft(value);
   }
 
-  function finishEditing() {
-    recordFormula(formula);
+  function focusInput(position: number): void {
+    if (focusFrameRef.current !== null) {
+      window.cancelAnimationFrame(focusFrameRef.current);
+    }
+
+    focusFrameRef.current = window.requestAnimationFrame(() => {
+      focusFrameRef.current = null;
+
+      const input = inputRef.current;
+
+      input?.focus();
+      input?.setSelectionRange(position, position);
+    });
+  }
+
+  function beginEditing(): void {
+    if (isEditingRef.current) {
+      return;
+    }
+
+    requestVersionRef.current += 1;
+    isEditingRef.current = true;
+
+    updateDraft(formulaRef.current);
+    setDraftError(null);
+    setIsEditing(true);
+
+    // Invalida el resultado anterior aunque la selección no cambie.
+    setAttempt((current) => current + 1);
+
+    useVennExpression.setState(createIdleSearch(latestSearchKeyRef.current));
+  }
+
+  function finishEditing(): void {
+    if (!isEditingRef.current) {
+      return;
+    }
+
+    recordFormula(draftRef.current);
     isEditingRef.current = false;
     setIsEditing(false);
   }
 
-  function applyFormula(value: string) {
-    setFormula(value);
+  function applyFormula(value: string): void {
+    updateDraft(value);
 
     if (!value.trim()) {
-      setError(null);
+      setDraftError(null);
       setRegionSelection([]);
       return;
     }
 
     try {
-      const parsed = parseVennExpression(diagram, value);
+      const parsed = parseVennExpression(diagramRef.current, value);
 
       setRegionSelection(parsed.regionIds);
-      setError(null);
+      setDraftError(null);
     } catch (caughtError) {
-      setError(
+      setDraftError(
         caughtError instanceof VennExpressionError
           ? caughtError.message
           : "No fue posible interpretar la fórmula.",
@@ -238,83 +308,67 @@ export function useFormulaEditor() {
     }
   }
 
-  function recordFormula(value: string) {
+  function isHistoryFormulaAvailable(value: string): boolean {
     if (!value.trim()) {
-      return;
+      return false;
     }
 
     try {
-      parseVennExpression(diagram, value);
-      saveFormulaToHistory(value);
-    } catch {
-      // Solo se guardan fórmulas válidas.
-    }
-  }
-
-  function handleChange(event: ChangeEvent<HTMLInputElement>) {
-    beginEditing();
-    applyFormula(event.target.value);
-  }
-
-  function insertSymbol(symbol: string) {
-    beginEditing();
-
-    const input = inputRef.current;
-    const start = input?.selectionStart ?? formula.length;
-    const end = input?.selectionEnd ?? formula.length;
-    const nextFormula = formula.slice(0, start) + symbol + formula.slice(end);
-
-    applyFormula(nextFormula);
-
-    window.requestAnimationFrame(() => {
-      const cursorPosition = start + symbol.length;
-
-      inputRef.current?.focus();
-      inputRef.current?.setSelectionRange(cursorPosition, cursorPosition);
-    });
-  }
-
-  function clearFormula() {
-    beginEditing();
-    setFormula("");
-    setError(null);
-    clearRegionSelection();
-    inputRef.current?.focus();
-  }
-
-  function isHistoryFormulaAvailable(historicalFormula: string): boolean {
-    try {
-      parseVennExpression(diagram, historicalFormula);
+      parseVennExpression(diagramRef.current, value);
       return true;
     } catch {
       return false;
     }
   }
 
-  function applyHistoryFormula(historicalFormula: string) {
-    if (!isHistoryFormulaAvailable(historicalFormula)) {
+  function recordFormula(value: string): void {
+    if (isHistoryFormulaAvailable(value)) {
+      saveFormulaToHistory(value);
+    }
+  }
+
+  function handleChange(event: ChangeEvent<HTMLInputElement>): void {
+    const value = event.currentTarget.value;
+
+    beginEditing();
+    applyFormula(value);
+  }
+
+  function insertSymbol(symbol: string): void {
+    beginEditing();
+
+    const value = draftRef.current;
+    const start = inputRef.current?.selectionStart ?? value.length;
+    const end = inputRef.current?.selectionEnd ?? value.length;
+
+    applyFormula(value.slice(0, start) + symbol + value.slice(end));
+    focusInput(start + symbol.length);
+  }
+
+  function clearFormula(): void {
+    beginEditing();
+    updateDraft("");
+    setDraftError(null);
+    clearRegionSelection();
+    focusInput(0);
+  }
+
+  function applyHistoryFormula(value: string): void {
+    if (!isHistoryFormulaAvailable(value)) {
       return;
     }
 
     beginEditing();
-    applyFormula(historicalFormula);
-    saveFormulaToHistory(historicalFormula);
-
-    window.requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.setSelectionRange(historicalFormula.length, historicalFormula.length);
-    });
+    applyFormula(value);
+    saveFormulaToHistory(value);
+    focusInput(value.length);
   }
 
-  const isCalculating =
-    !isEditing && hasSelection && (search.key !== searchKey || search.status === "searching");
-
-  const calculationError = !isEditing && search.key === searchKey ? search.error : null;
-
-  const isMinimum = !isEditing && search.key === searchKey && search.status === "ready";
-
+  const isCalculating = search.status === "searching";
+  const calculationError = search.error;
+  const isMinimum = search.status === "ready";
   const hasFormula = formula.trim().length > 0;
-  const isValid = hasFormula && !error;
+  const isValid = hasFormula && error === null && calculationError === null;
 
   return {
     inputRef,

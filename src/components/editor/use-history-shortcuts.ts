@@ -1,15 +1,5 @@
 import { useEffect } from "react";
 
-function isEditableElement(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target.isContentEditable
-  );
-}
-
 interface HistoryShortcutsOptions {
   canUndo: boolean;
   canRedo: boolean;
@@ -17,21 +7,45 @@ interface HistoryShortcutsOptions {
   redo: () => void;
 }
 
-export function useHistoryShortcuts({ canUndo, canRedo, undo, redo }: HistoryShortcutsOptions) {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (isEditableElement(event.target)) return;
+function isEditableElement(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
 
-      const hasModifier = event.ctrlKey || event.metaKey;
-      if (!hasModifier) return;
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.isContentEditable
+  );
+}
+
+export function useHistoryShortcuts({
+  canUndo,
+  canRedo,
+  undo,
+  redo,
+}: HistoryShortcutsOptions): void {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.altKey ||
+        isEditableElement(event.target) ||
+        !(event.ctrlKey || event.metaKey)
+      ) {
+        return;
+      }
 
       const key = event.key.toLowerCase();
       const wantsUndo = key === "z" && !event.shiftKey;
-      const wantsRedo = (key === "z" && event.shiftKey) || key === "y";
+      const wantsRedo = (key === "z" && event.shiftKey) || (key === "y" && !event.shiftKey);
 
       if (wantsUndo && canUndo) {
         event.preventDefault();
         undo();
+        return;
       }
 
       if (wantsRedo && canRedo) {
@@ -45,5 +59,5 @@ export function useHistoryShortcuts({ canUndo, canRedo, undo, redo }: HistorySho
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [canRedo, canUndo, redo, undo]);
+  }, [canUndo, canRedo, undo, redo]);
 }

@@ -2,27 +2,27 @@ import { describe, expect, it } from "vitest";
 
 import { createInitialDiagram, createVennElement } from "@/domain/venn/factories";
 
-describe("Venn elements", () => {
-  it("creates an empty element list for a new diagram", () => {
+describe("Creación de elementos de Venn", () => {
+  it("inicializa los diagramas sin elementos", () => {
     const diagram = createInitialDiagram();
 
     expect(diagram.elements).toEqual([]);
   });
 
-  it("creates an element with its set memberships", () => {
+  it("crea un elemento con su nombre y sus pertenencias", () => {
     const element = createVennElement("Martín", ["set-a", "set-b"]);
 
     expect(element.label).toBe("Martín");
     expect(element.setIds).toEqual(["set-a", "set-b"]);
   });
 
-  it("removes duplicate set memberships", () => {
+  it("elimina las pertenencias duplicadas", () => {
     const element = createVennElement("Martín", ["set-a", "set-a", "set-b"]);
 
     expect(element.setIds).toEqual(["set-a", "set-b"]);
   });
 
-  it("does not create an unnamed element", () => {
+  it("rechaza un elemento cuyo nombre contiene únicamente espacios", () => {
     expect(() => createVennElement("   ", ["set-a"])).toThrow("debe tener un nombre");
   });
 });

@@ -10,19 +10,24 @@ import { useStorageRecovery } from "@/state/venn-storage";
 import { useVennStore } from "@/state/venn-store";
 
 function App() {
-  const sharedProjectLoaded = useRef(false);
+  const sharedProjectHandled = useRef(false);
   const importProject = useVennStore((state) => state.importProject);
   const recoveryIssue = useStorageRecovery((state) => state.issue);
 
   useEffect(() => {
-    if (sharedProjectLoaded.current || recoveryIssue !== null) return;
+    if (sharedProjectHandled.current || recoveryIssue !== null) {
+      return;
+    }
 
-    sharedProjectLoaded.current = true;
+    // Evita consumir el enlace nuevamente si React repite el efecto en StrictMode.
+    sharedProjectHandled.current = true;
 
     try {
       const sharedProject = consumeSharedProject();
 
-      if (!sharedProject) return;
+      if (!sharedProject) {
+        return;
+      }
 
       importProject(sharedProject.diagram, sharedProject.selectedRegionIds);
     } catch (error) {

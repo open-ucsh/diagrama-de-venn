@@ -4,19 +4,22 @@ import { createInitialDiagram, createVennSet } from "@/domain/venn/factories";
 import { addSet, renameSet } from "@/domain/venn/operations";
 import { useVennStore } from "@/state/venn-store";
 
-describe("Set name validation", () => {
-  it.each(["A", "a", " A ", "\t a \n"])("rejects creating a duplicate named %j", (name) => {
-    const diagram = createInitialDiagram();
-    const set = createVennSet(name, { x: 450, y: 420 });
+describe("Validación de nombres de conjuntos", () => {
+  it.each(["A", "a", " A ", "\t a \n"])(
+    "rechaza crear un conjunto con el nombre duplicado %j",
+    (name) => {
+      const diagram = createInitialDiagram();
+      const set = createVennSet(name, { x: 450, y: 420 });
 
-    expect(() => addSet(diagram, set)).toThrow(
-      'Ya existe un conjunto llamado "A". Elige otro nombre',
-    );
-    expect(diagram.sets.map((current) => current.name)).toEqual(["A", "B"]);
-  });
+      expect(() => addSet(diagram, set)).toThrow(
+        'Ya existe un conjunto llamado "A". Elige otro nombre',
+      );
+      expect(diagram.sets.map((current) => current.name)).toEqual(["A", "B"]);
+    },
+  );
 
   it.each(["B", "b", " B ", "\t b \n"])(
-    "rejects renaming a set to %j when another set uses that name",
+    "rechaza renombrar un conjunto con el nombre duplicado %j",
     (name) => {
       const diagram = createInitialDiagram();
 
@@ -27,15 +30,14 @@ describe("Set name validation", () => {
     },
   );
 
-  it("ignores repeated spaces between words when creating a set", () => {
+  it("ignora los espacios repetidos al comprobar duplicados durante la creación", () => {
     const diagram = renameSet(createInitialDiagram(), "set-a", "Grupo Uno");
+    const set = createVennSet("  grupo   UNO  ", { x: 450, y: 420 });
 
-    expect(() => addSet(diagram, createVennSet("  grupo   UNO  ", { x: 450, y: 420 }))).toThrow(
-      'Ya existe un conjunto llamado "Grupo Uno"',
-    );
+    expect(() => addSet(diagram, set)).toThrow('Ya existe un conjunto llamado "Grupo Uno"');
   });
 
-  it("ignores repeated spaces between words when renaming a set", () => {
+  it("ignora los espacios repetidos al comprobar duplicados durante el cambio de nombre", () => {
     const diagram = renameSet(createInitialDiagram(), "set-a", "Grupo Uno");
 
     expect(() => renameSet(diagram, "set-b", " grupo \t UNO ")).toThrow(
@@ -43,7 +45,7 @@ describe("Set name validation", () => {
     );
   });
 
-  it("checks existing names even when they contain unnecessary spaces", () => {
+  it("detecta duplicados aunque el nombre existente tenga espacios innecesarios", () => {
     const initialDiagram = createInitialDiagram();
     const diagram = {
       ...initialDiagram,
@@ -55,19 +57,23 @@ describe("Set name validation", () => {
     expect(() => renameSet(diagram, "set-b", "grupo uno")).toThrow("Ya existe un conjunto");
   });
 
-  it.each(["", " ", "\t\n"])("rejects an empty name %j when creating or renaming a set", (name) => {
+  it.each(["", " ", "\t\n"])("rechaza el nombre vacío %j al crear un conjunto", (name) => {
     const diagram = createInitialDiagram();
 
     expect(() => addSet(diagram, createVennSet(name, { x: 450, y: 420 }))).toThrow(
       "El nombre del conjunto no puede estar vacío",
     );
+  });
+
+  it.each(["", " ", "\t\n"])("rechaza el nombre vacío %j al renombrar un conjunto", (name) => {
+    const diagram = createInitialDiagram();
 
     expect(() => renameSet(diagram, "set-a", name)).toThrow(
       "El nombre del conjunto no puede estar vacío",
     );
   });
 
-  it("creates a valid set and normalizes unnecessary spaces", () => {
+  it("normaliza el nombre de un conjunto nuevo sin modificar los datos originales", () => {
     const diagram = createInitialDiagram();
     const set = createVennSet("  Grupo   Tres  ", { x: 450, y: 420 });
 
@@ -78,7 +84,7 @@ describe("Set name validation", () => {
     expect(diagram.sets).toHaveLength(2);
   });
 
-  it("renames a set to a valid name and preserves the original diagram", () => {
+  it("normaliza un nuevo nombre sin modificar el diagrama original", () => {
     const diagram = createInitialDiagram();
 
     const updatedDiagram = renameSet(diagram, "set-a", "  Grupo   Uno  ");
@@ -87,7 +93,7 @@ describe("Set name validation", () => {
     expect(diagram.sets[0]?.name).toBe("A");
   });
 
-  it("allows changing the capitalization of the same set", () => {
+  it("permite cambiar las mayúsculas y minúsculas del mismo conjunto", () => {
     const diagram = createInitialDiagram();
 
     const updatedDiagram = renameSet(diagram, "set-a", "a");
@@ -95,13 +101,13 @@ describe("Set name validation", () => {
     expect(updatedDiagram.sets[0]?.name).toBe("a");
   });
 
-  it("returns the original diagram when the normalized name is unchanged", () => {
+  it("devuelve el mismo diagrama cuando el nombre normalizado no cambia", () => {
     const diagram = createInitialDiagram();
 
     expect(renameSet(diagram, "set-a", " A ")).toBe(diagram);
   });
 
-  it("includes hidden sets when checking duplicate names", () => {
+  it("incluye los conjuntos ocultos al comprobar nombres duplicados", () => {
     const initialDiagram = createInitialDiagram();
     const diagram = {
       ...initialDiagram,
@@ -112,55 +118,61 @@ describe("Set name validation", () => {
   });
 });
 
-describe("Set name validation through the store", () => {
+describe("Validación de nombres desde el estado del editor", () => {
   beforeEach(() => {
     useVennStore.getState().resetDiagram();
     useVennStore.setState({ past: [], future: [] });
   });
 
-  it("preserves the complete state when creating a duplicate", () => {
+  it("conserva el estado completo cuando se intenta crear un nombre duplicado", () => {
     useVennStore.getState().setRegionSelection(["example-region"]);
     useVennStore.getState().undo();
 
-    const before = useVennStore.getState();
+    const previousState = useVennStore.getState();
 
-    expect(() => before.createSet(" a ", { x: 450, y: 420 })).toThrow("Ya existe un conjunto");
-
-    expect(useVennStore.getState()).toBe(before);
+    expect(() => previousState.createSet(" a ", { x: 450, y: 420 })).toThrow(
+      "Ya existe un conjunto",
+    );
+    expect(useVennStore.getState()).toBe(previousState);
   });
 
-  it("preserves the complete state when renaming to a duplicate", () => {
+  it("conserva el estado completo cuando se intenta renombrar con un nombre duplicado", () => {
     useVennStore.getState().setRegionSelection(["example-region"]);
     useVennStore.getState().undo();
 
-    const before = useVennStore.getState();
+    const previousState = useVennStore.getState();
 
-    expect(() => before.renameSet("set-a", " b ")).toThrow("Ya existe un conjunto");
-
-    expect(useVennStore.getState()).toBe(before);
+    expect(() => previousState.renameSet("set-a", " b ")).toThrow("Ya existe un conjunto");
+    expect(useVennStore.getState()).toBe(previousState);
   });
 
-  it("creates a valid normalized name with undo and redo support", () => {
+  it("permite deshacer y rehacer la creación de un conjunto con nombre normalizado", () => {
     useVennStore.getState().createSet("  Grupo   Tres  ", { x: 450, y: 420 });
 
+    expect(useVennStore.getState().diagram.sets).toHaveLength(3);
     expect(useVennStore.getState().diagram.sets.at(-1)?.name).toBe("Grupo Tres");
 
     useVennStore.getState().undo();
+
     expect(useVennStore.getState().diagram.sets).toHaveLength(2);
 
     useVennStore.getState().redo();
+
+    expect(useVennStore.getState().diagram.sets).toHaveLength(3);
     expect(useVennStore.getState().diagram.sets.at(-1)?.name).toBe("Grupo Tres");
   });
 
-  it("renames to a valid normalized name with undo and redo support", () => {
+  it("permite deshacer y rehacer un cambio de nombre normalizado", () => {
     useVennStore.getState().renameSet("set-a", "  Grupo   Uno  ");
 
     expect(useVennStore.getState().diagram.sets[0]?.name).toBe("Grupo Uno");
 
     useVennStore.getState().undo();
+
     expect(useVennStore.getState().diagram.sets[0]?.name).toBe("A");
 
     useVennStore.getState().redo();
+
     expect(useVennStore.getState().diagram.sets[0]?.name).toBe("Grupo Uno");
   });
 });

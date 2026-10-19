@@ -27,13 +27,38 @@ body {
 }
 
 body {
-  min-width: 20rem;
-  min-height: 100vh;
   margin: 0;
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-sans);
 }
+
+button,
+input,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled),
+summary {
+  cursor: pointer;
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+summary {
+  list-style: none;
+}
+
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 3px;
+}
+
+/* Distribución */
 
 .venn-workspace {
   display: flex;
@@ -45,151 +70,86 @@ body {
   background: #fbfcfe;
 }
 
-.venn-workspace__body {
-  position: relative;
-  min-height: 0;
-  flex: 1;
-  overflow: hidden;
-  background-color: #fbfcfe;
-  background-image: radial-gradient(#d8e0eb 0.8px, transparent 0.8px);
-  background-size: 16px 16px;
+.venn-workspace > header > div {
+  min-height: 4rem;
 }
 
-.venn-workspace__canvas {
-  position: absolute;
-  inset: 0 0 12.5rem;
+.venn-workspace__body {
+  position: relative;
+  display: grid;
   min-width: 0;
   min-height: 0;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(18rem, 1fr) auto;
+  grid-template-areas:
+    "sets"
+    "canvas"
+    "formula";
+  gap: 0.75rem;
   padding: 0.75rem;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  overflow: auto;
+  background-image: radial-gradient(#dce5ef 0.65px, transparent 0.65px);
+  background-size: 18px 18px;
 }
 
 .venn-workspace__sets {
-  position: absolute;
   z-index: 30;
-  top: 1rem;
-  left: 1rem;
-  width: 17rem;
-  max-height: calc(100% - 14rem);
+  min-width: 0;
+  min-height: 0;
+  grid-area: sets;
+  align-self: start;
 }
 
-.venn-sets-panel__card {
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  background: rgb(255 255 255 / 96%);
-  box-shadow: 0 8px 24px rgb(20 43 74 / 6%);
-}
-
-.venn-sets-panel__header {
-  border-bottom: 1px solid var(--color-border);
-}
-
-.venn-sets-panel__desktop-header {
-  padding: 0.75rem 1rem;
-}
-
-.venn-sets-panel__content {
-  max-height: calc(100dvh - 16rem);
-  padding: 0.5rem 1rem 0.75rem;
-  overflow-y: auto;
-}
-
-.venn-sets-panel__item {
-  padding: 0.65rem 0;
-  border: 0;
-  border-bottom: 1px solid var(--color-border);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.venn-sets-panel__item:hover {
-  background: transparent;
-}
-
-.venn-sets-panel__item-content {
-  gap: 0.6rem;
-}
-
-.venn-sets-panel__color-control {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.65rem;
-}
-
-.venn-sets-panel__action {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.4rem;
-}
-
-.venn-sets-panel__add-button {
-  margin-top: 0.65rem;
-  border: 1px dashed #cbd5e1;
-  border-radius: 0.55rem;
-  background: white;
+.venn-workspace__canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  grid-area: canvas;
 }
 
 .venn-workspace__formula {
-  position: absolute;
-  z-index: 30;
-  right: 0;
-  bottom: 0.65rem;
-  left: 0;
-  width: min(64rem, calc(100% - 2rem));
-  margin-inline: auto;
+  position: relative;
+  z-index: 40;
+  width: 100%;
+  min-width: 0;
+  grid-area: formula;
 }
 
-.venn-formula-bar {
-  border: 1px solid var(--color-border);
-  border-radius: 0.8rem;
-  background: rgb(255 255 255 / 97%);
-  box-shadow: 0 8px 24px rgb(20 43 74 / 7%);
+/* Diagrama */
+
+.venn-canvas-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding-top: 3rem;
 }
 
-.venn-formula-bar__input-section {
-  padding: 0.65rem 1rem 0.4rem;
+.venn-canvas-fit {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
-.venn-formula-bar__hint {
-  display: none;
-}
-
-.venn-formula-bar__label {
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
-}
-
-.venn-formula-bar__input {
-  min-height: 2.25rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.45rem;
-  padding: 0.4rem 0.7rem;
-}
-
-.venn-formula-bar__status {
-  min-height: 1rem;
-  margin-top: 0.15rem;
-}
-
-.venn-formula-bar__actions {
-  padding: 0.45rem 1rem 0.6rem;
-}
-
-.venn-formula-bar__actions button {
-  height: 2rem;
-  border-radius: 0.4rem;
+.venn-canvas-fit > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .venn-universe {
-  fill: rgb(255 255 255 / 68%);
-  stroke: #12376b;
-  stroke-width: 2;
+  fill: rgb(255 255 255 / 55%);
+  stroke: var(--color-brand-primary);
+  stroke-width: 1.25;
   vector-effect: non-scaling-stroke;
 }
 
 .venn-universe-label {
-  fill: #12376b;
+  fill: var(--color-brand-primary);
   font-family: Georgia, "Times New Roman", serif;
   font-size: 23px;
   font-style: italic;
@@ -198,47 +158,499 @@ body {
 .venn-set-label {
   paint-order: stroke;
   stroke: white;
-  stroke-width: 5px;
+  stroke-width: 4px;
   stroke-linejoin: round;
 }
 
-@media (max-width: 639px) {
-  .venn-workspace__canvas {
-    inset: 0 0 15rem;
-    padding: 0.5rem 0.25rem;
+.venn-region-tooltip {
+  margin: 2px;
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: white;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  box-shadow: 0 3px 8px rgb(20 43 74 / 7%);
+}
+
+/* Conjuntos */
+
+.venn-sets-panel__card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: white;
+}
+
+.venn-sets-panel__header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.venn-sets-panel__header > button {
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+}
+
+.venn-sets-panel__header > button > span:first-child > span:first-child {
+  color: var(--color-brand-primary);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.venn-sets-panel__desktop-header {
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
+}
+
+.venn-sets-panel__content {
+  max-height: 42dvh;
+  padding: 0.5rem 0.75rem 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.venn-set-item {
+  margin-block: 0.25rem;
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+
+.venn-set-item--open {
+  border-color: var(--color-border);
+  background: #f6f9fd;
+}
+
+.venn-set-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.venn-set-color {
+  position: relative;
+  display: grid;
+  width: 1.5rem;
+  height: 2rem;
+  flex-shrink: 0;
+  place-items: center;
+  cursor: pointer;
+}
+
+.venn-set-color:focus-within {
+  border-radius: 4px;
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
+.venn-set-trigger {
+  display: flex;
+  min-width: 0;
+  min-height: 2rem;
+  flex: 1;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 4px;
+  color: var(--color-brand-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.venn-set-preview {
+  margin: 0.125rem 0 0 2rem;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.venn-definition {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem 0.25rem 0.25rem;
+}
+
+.venn-field-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.venn-field {
+  width: 100%;
+  min-width: 0;
+  height: 2.25rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: white;
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.venn-field:focus {
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 2px rgb(18 55 107 / 7%);
+}
+
+.venn-field-hint {
+  margin-top: 0.35rem;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.venn-save-button,
+.venn-cancel-button {
+  min-height: 2rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.venn-save-button {
+  background: var(--color-brand-primary);
+  color: white;
+}
+
+.venn-save-button:hover {
+  background: var(--color-brand-primary-hover);
+}
+
+.venn-cancel-button {
+  color: var(--color-text-muted);
+}
+
+.venn-cancel-button:hover {
+  background: var(--color-surface-hover);
+}
+
+.venn-set-secondary {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.venn-text-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+}
+
+.venn-text-action:hover {
+  background: var(--color-surface-hover);
+}
+
+.venn-sets-panel__action {
+  border-radius: 5px;
+}
+
+.venn-sets-panel__add-button {
+  min-height: 2.25rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Fórmula */
+
+.venn-formula-bar {
+  position: relative;
+  padding: 0.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 4px 16px rgb(20 43 74 / 4%);
+}
+
+.venn-formula-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.venn-formula-input {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: white;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.venn-formula-input:focus {
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 2px rgb(18 55 107 / 7%);
+}
+
+.venn-formula-operators {
+  display: flex;
+  flex-basis: 100%;
+  gap: 0.25rem;
+  order: 3;
+  padding-left: 2.5rem;
+}
+
+.venn-operator {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.venn-operator:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-brand-primary);
+}
+
+.venn-formula-feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.5rem 0.125rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.venn-formula-feedback[role="alert"] {
+  color: #b91c1c;
+}
+
+.venn-formula-result {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 5px;
+  background: var(--color-surface);
+}
+
+.venn-result-details {
+  min-width: 0;
+  flex: 1;
+}
+
+.venn-result-expanded {
+  max-height: 8rem;
+  margin-top: 0.5rem;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.75;
+}
+
+.venn-result-details[open] > summary {
+  white-space: normal;
+}
+
+.venn-formula-history {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.venn-formula-history details > summary {
+  height: 2.5rem;
+  padding-inline: 0.625rem;
+  border-radius: 5px;
+  font-size: 0.75rem;
+}
+
+.venn-formula-history details > div {
+  position: absolute;
+  top: auto;
+  right: 0;
+  bottom: calc(100% + 0.75rem);
+  left: auto;
+  width: min(26rem, calc(100vw - 2rem));
+  margin: 0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(20 43 74 / 10%);
+}
+
+.venn-formula-history ol {
+  max-height: 40dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* Regiones */
+
+.venn-region-picker {
+  position: absolute;
+  z-index: 25;
+  top: 0;
+  right: 0;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: white;
+}
+
+.venn-region-picker > summary {
+  padding: 0.625rem 0.875rem;
+  color: var(--color-brand-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.venn-region-picker > summary::before {
+  content: "▸";
+  margin-right: 0.5rem;
+  color: var(--color-text-muted);
+}
+
+.venn-region-picker[open] {
+  width: min(22rem, 100%);
+}
+
+.venn-region-picker[open] > summary {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.venn-region-picker[open] > summary::before {
+  content: "▾";
+}
+
+.venn-region-picker > div {
+  padding: 0.25rem 0.75rem 0.75rem;
+}
+
+.venn-region-picker ul {
+  max-height: 35dvh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.venn-region-inspector {
+  display: none;
+}
+
+.venn-region-formula {
+  margin-block: 1rem;
+  overflow-wrap: anywhere;
+  color: var(--color-brand-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.venn-element-chips {
+  display: flex;
+  max-height: 10rem;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  overflow: auto;
+}
+
+.venn-element-chip {
+  max-width: 100%;
+  padding: 0.375rem 0.625rem;
+  overflow-wrap: anywhere;
+  border-radius: 5px;
+  background: var(--color-surface-hover);
+  color: var(--color-brand-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Escritorio */
+
+@media (min-width: 1024px) {
+  .venn-workspace__body {
+    grid-template-columns: 17rem minmax(0, 1fr) 16rem;
+    grid-template-rows: minmax(16rem, 1fr) auto;
+    grid-template-areas:
+      "sets canvas ."
+      "sets formula formula";
+    gap: 1rem;
+    padding: 1rem;
   }
 
   .venn-workspace__sets {
-    top: 0.75rem;
-    right: 0.75rem;
-    left: 0.75rem;
-    width: auto;
-    max-height: calc(100% - 16rem);
+    max-height: 100%;
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
 
   .venn-sets-panel__content {
-    max-height: 30dvh;
+    max-height: none;
+    overflow: visible;
   }
 
-  .venn-workspace__formula {
-    bottom: 0.5rem;
-    width: calc(100% - 1rem);
+  .venn-workspace__canvas,
+  .venn-canvas-viewport {
+    position: static;
   }
 
-  .venn-formula-bar__input-section {
-    gap: 0.4rem;
-    padding: 0.55rem 0.7rem 0.35rem;
+  .venn-canvas-viewport {
+    padding-top: 0;
   }
 
-  .venn-formula-bar__actions {
-    padding: 0.4rem 0.7rem 0.55rem;
+  .venn-region-picker {
+    top: 1rem;
+    right: 1rem;
+    width: 16rem;
+  }
+
+  .venn-region-inspector {
+    position: absolute;
+    z-index: 20;
+    top: 4.5rem;
+    right: 1rem;
+    display: block;
+    width: 16rem;
+    max-height: calc(100% - 13rem);
+    padding: 1rem;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 4px 16px rgb(20 43 74 / 4%);
   }
 }
 
-.venn-canvas-fit > svg {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  flex: none;
+@media (min-width: 1280px) {
+  .venn-formula-toolbar {
+    flex-wrap: nowrap;
+  }
+
+  .venn-formula-operators {
+    flex-basis: auto;
+    order: 0;
+    padding-left: 0;
+  }
 }

@@ -4,29 +4,29 @@ import { createInitialDiagram, createVennElement } from "@/domain/venn/factories
 import { addElement } from "@/domain/venn/operations";
 import { createProjectFile, parseProjectFile } from "@/domain/venn/project-file";
 
-describe("Venn project files", () => {
-  it("preserves the diagram and selection through JSON serialization", () => {
+describe("Archivos de proyectos de Venn", () => {
+  it("conserva el diagrama y la selección al serializar y leer el proyecto", () => {
     const diagram = addElement(
       createInitialDiagram("Encuesta"),
       createVennElement("Ana", ["set-a", "set-b"]),
     );
-    const selection = ["outside", "region:set-a:set-b"];
-    const project = createProjectFile(diagram, selection);
-    const serialized: unknown = JSON.parse(JSON.stringify(project));
+    const selectedRegionIds = ["outside", "region:set-a:set-b"];
+    const project = createProjectFile(diagram, selectedRegionIds);
+    const serializedProject: unknown = JSON.parse(JSON.stringify(project));
 
-    expect(parseProjectFile(serialized)).toEqual(project);
+    expect(parseProjectFile(serializedProject)).toEqual(project);
   });
 
-  it("copies the selection when creating a project", () => {
-    const selection = ["region:set-a"];
-    const project = createProjectFile(createInitialDiagram(), selection);
+  it("copia la selección para evitar cambios externos posteriores", () => {
+    const selectedRegionIds = ["region:set-a"];
+    const project = createProjectFile(createInitialDiagram(), selectedRegionIds);
 
-    selection.push("outside");
+    selectedRegionIds.push("outside");
 
     expect(project.selectedRegionIds).toEqual(["region:set-a"]);
   });
 
-  it("removes duplicate and unknown selected regions when parsing", () => {
+  it("elimina las regiones seleccionadas duplicadas o desconocidas durante la lectura", () => {
     const project = createProjectFile(createInitialDiagram(), [
       "region:set-a",
       "unknown-region",
@@ -34,10 +34,12 @@ describe("Venn project files", () => {
       "outside",
     ]);
 
-    expect(parseProjectFile(project).selectedRegionIds).toEqual(["region:set-a", "outside"]);
+    const parsedProject = parseProjectFile(project);
+
+    expect(parsedProject.selectedRegionIds).toEqual(["region:set-a", "outside"]);
   });
 
-  it("rejects an unsupported version", () => {
+  it("rechaza una versión no compatible", () => {
     const project = createProjectFile(createInitialDiagram(), []);
 
     expect(() => parseProjectFile({ ...project, version: 2 })).toThrow(
@@ -45,7 +47,7 @@ describe("Venn project files", () => {
     );
   });
 
-  it("rejects duplicate set identifiers", () => {
+  it("rechaza los identificadores de conjuntos duplicados", () => {
     const diagram = createInitialDiagram();
     const project = createProjectFile(
       {
@@ -60,7 +62,7 @@ describe("Venn project files", () => {
     );
   });
 
-  it("rejects an element with an unknown membership", () => {
+  it("rechaza un elemento que pertenece a un conjunto desconocido", () => {
     const diagram = createInitialDiagram();
     const project = createProjectFile(
       {
