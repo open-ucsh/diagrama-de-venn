@@ -1,7 +1,7 @@
 import { type KeyboardEvent, useRef } from "react";
 
 import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
-import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { formatElementLabels } from "@/domain/venn/elements";
 import type { VennElement } from "@/domain/venn/models";
 import type { VennRegion } from "@/domain/venn/regions";

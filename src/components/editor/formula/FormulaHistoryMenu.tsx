@@ -3,7 +3,7 @@ import { useDismissableLayer } from "@/hooks/use-dismissable-layer";
 import { Check, Clock3, Copy, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
-import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 const COPY_FEEDBACK_DURATION = 1_500;
 

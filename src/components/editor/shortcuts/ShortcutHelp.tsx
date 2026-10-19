@@ -52,7 +52,7 @@ function ShortcutKeys({
   );
 }
 
-export function KeyboardShortcutsHelp() {
+export function ShortcutHelp() {
   const titleId = useId();
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);

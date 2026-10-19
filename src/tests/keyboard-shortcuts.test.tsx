@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useHistoryShortcuts } from "@/components/editor/use-history-shortcuts";
-import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 interface HarnessProps {
   canUndo?: boolean;

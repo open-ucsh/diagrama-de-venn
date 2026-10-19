@@ -6,7 +6,7 @@ import { useId, useState } from "react";
 import { DefinitionEditor } from "@/components/editor/sets/DefinitionEditor";
 import { SetPanelItem } from "@/components/editor/sets/SetPanelItem";
 import { getNextSetName, getNextSetPosition } from "@/components/editor/sets/set-defaults";
-import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { formatElementLabels, getSetElements } from "@/domain/venn/elements";
 import { getSetColor } from "@/domain/venn/set-colors";
 import type { VennSet } from "@/domain/venn/models";

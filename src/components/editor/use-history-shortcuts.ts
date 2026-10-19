@@ -1,5 +1,5 @@
 import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
-import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 interface HistoryShortcutsOptions {
   canUndo: boolean;

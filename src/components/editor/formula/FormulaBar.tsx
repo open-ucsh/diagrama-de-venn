@@ -5,7 +5,7 @@ import { type KeyboardEvent, useId } from "react";
 import { FormulaElements } from "@/components/editor/formula/FormulaElements";
 import { FormulaHistoryMenu } from "@/components/editor/formula/FormulaHistoryMenu";
 import { useFormulaEditor } from "@/components/editor/formula/use-formula-editor";
-import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 const FORMULA_SYMBOLS = [
   { label: "∪", value: " ∪ ", title: "Unión" },
