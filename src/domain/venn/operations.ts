@@ -1,8 +1,8 @@
+import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import { createCircleSetLayout, createFourSetEllipseLayout } from "@/domain/venn/factories";
 import type { Point, VennDiagram, VennElement, VennSet } from "@/domain/venn/models";
 
-export const MAX_SETS = 4;
-export const MIN_SETS = 1;
+export { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 
 function normalizeSetName(name: string): string {
   return name.trim().replace(/\s+/g, " ");

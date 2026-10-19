@@ -6,17 +6,13 @@ import { SetPanelItem } from "@/components/editor/sets/SetPanelItem";
 import { getNextSetName, getNextSetPosition } from "@/components/editor/sets/set-defaults";
 import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
 import { formatElementLabels, getSetElements } from "@/domain/venn/elements";
-import { DEFAULT_SET_COLORS } from "@/domain/venn/factories";
+import { getSetColor } from "@/domain/venn/set-colors";
 import type { VennSet } from "@/domain/venn/models";
-import { MAX_SETS, MIN_SETS } from "@/domain/venn/operations";
+import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import { saveSetDefinition, saveUniverseDefinition } from "@/state/venn-element-actions";
 import { useVennStore } from "@/state/venn-store";
 
 type EditingTarget = { kind: "set"; id: string } | { kind: "universe" } | null;
-
-function getSetColor(set: VennSet, index: number): string {
-  return set.color ?? DEFAULT_SET_COLORS[index] ?? DEFAULT_SET_COLORS[0];
-}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;

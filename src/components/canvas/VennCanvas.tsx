@@ -1,3 +1,4 @@
+import { getSetColor } from "@/domain/venn/set-colors";
 import { type KeyboardEvent, type MouseEvent, useId, useMemo, useRef, useState } from "react";
 
 import {
@@ -16,12 +17,6 @@ import type { Point, VennSet } from "@/domain/venn/models";
 import { getElementsInRegion } from "@/domain/venn/queries";
 import { getRegionAtPoint, getVennRegions, type VennRegion } from "@/domain/venn/regions";
 import { useVennStore } from "@/state/venn-store";
-
-const DEFAULT_COLORS = ["#d9a21b", "#168d78", "#50a9bd", "#12376b"] as const;
-
-function getSetColor(set: VennSet, index: number): string {
-  return set.color ?? DEFAULT_COLORS[index] ?? DEFAULT_COLORS[0];
-}
 
 function getCanvasPoint(event: MouseEvent<SVGSVGElement>): Point | null {
   const svg = event.currentTarget;

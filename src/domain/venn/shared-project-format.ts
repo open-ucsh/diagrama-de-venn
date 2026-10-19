@@ -1,3 +1,4 @@
+import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import { getRegionIdsFromMask, getSelectedMask } from "@/domain/venn/expressions/expression-masks";
 import {
   createCircleSetLayout,
@@ -11,7 +12,6 @@ import type { VennDiagram } from "@/domain/venn/models";
 import type { VennProjectFile } from "@/domain/venn/project-file";
 
 const SHARE_VERSION = 1;
-const MAXIMUM_SET_COUNT = 4;
 const MAXIMUM_ELEMENT_COUNT = 200;
 const MAXIMUM_PROJECT_NAME_LENGTH = 120;
 const MAXIMUM_SET_NAME_LENGTH = 60;
@@ -123,8 +123,8 @@ export function parseCompactProject(value: unknown): CompactSharedProject {
     version !== SHARE_VERSION ||
     !isValidName(name, MAXIMUM_PROJECT_NAME_LENGTH) ||
     !Array.isArray(rawSets) ||
-    rawSets.length < 1 ||
-    rawSets.length > MAXIMUM_SET_COUNT ||
+    rawSets.length < MIN_SETS ||
+    rawSets.length > MAX_SETS ||
     typeof selectionMask !== "number" ||
     !Number.isInteger(selectionMask)
   ) {
@@ -174,7 +174,7 @@ export function createDiagramFromCompactProject(project: CompactSharedProject): 
   }));
 
   const sets =
-    initialSets.length === MAXIMUM_SET_COUNT
+    initialSets.length === MAX_SETS
       ? createFourSetEllipseLayout(initialSets)
       : createCircleSetLayout(initialSets);
 
