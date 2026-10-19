@@ -1,32 +1,27 @@
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
+import { getErrorMessage } from "@/lib/errors";
 import { ChevronDown, Pencil, Plus } from "lucide-react";
 import { useId, useState } from "react";
 
 import { DefinitionEditor } from "@/components/editor/sets/DefinitionEditor";
 import { SetPanelItem } from "@/components/editor/sets/SetPanelItem";
 import { getNextSetName, getNextSetPosition } from "@/components/editor/sets/set-defaults";
-import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 import { formatElementLabels, getSetElements } from "@/domain/venn/elements";
-import { DEFAULT_SET_COLORS } from "@/domain/venn/factories";
+import { getSetColor } from "@/domain/venn/set-colors";
 import type { VennSet } from "@/domain/venn/models";
-import { MAX_SETS, MIN_SETS } from "@/domain/venn/operations";
-import { saveSetDefinition, saveUniverseDefinition } from "@/state/venn-element-actions";
+import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import { useVennStore } from "@/state/venn-store";
 
 type EditingTarget = { kind: "set"; id: string } | { kind: "universe" } | null;
-
-function getSetColor(set: VennSet, index: number): string {
-  return set.color ?? DEFAULT_SET_COLORS[index] ?? DEFAULT_SET_COLORS[0];
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
 
 export function SetsPanel() {
   const panelId = useId();
 
   const diagram = useVennStore((state) => state.diagram);
   const createSet = useVennStore((state) => state.createSet);
+  const saveSetDefinition = useVennStore((state) => state.saveSetDefinition);
+  const saveUniverseDefinition = useVennStore((state) => state.saveUniverseDefinition);
   const removeSet = useVennStore((state) => state.removeSet);
   const setSetColor = useVennStore((state) => state.setSetColor);
   const toggleSetVisibility = useVennStore((state) => state.toggleSetVisibility);
@@ -46,8 +41,7 @@ export function SetsPanel() {
   const isEditingUniverse = editing?.kind === "universe";
 
   useKeyboardShortcut({
-    code: "Digit1",
-    shift: true,
+    ...SHORTCUTS.toggleSets,
     onTrigger: () => {
       setIsPanelOpen((open) => !open);
     },

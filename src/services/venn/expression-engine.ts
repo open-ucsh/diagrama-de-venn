@@ -1,3 +1,4 @@
+import { MAX_SETS, MIN_SETS } from "@/domain/venn/constants";
 import type {
   ExpressionWorkerRequest,
   ExpressionWorkerResponse,
@@ -21,7 +22,7 @@ export class ExpressionEngine {
   private closedError: Error | null = null;
 
   constructor(names: string[]) {
-    if (names.length < 1 || names.length > 4) {
+    if (names.length < MIN_SETS || names.length > MAX_SETS) {
       throw new Error("El motor admite entre 1 y 4 conjuntos.");
     }
 

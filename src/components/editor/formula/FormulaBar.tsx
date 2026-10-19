@@ -1,10 +1,11 @@
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
 import { CircleAlert, LoaderCircle, Sigma, X } from "lucide-react";
 import { type KeyboardEvent, useId } from "react";
 
 import { FormulaElements } from "@/components/editor/formula/FormulaElements";
 import { FormulaHistoryMenu } from "@/components/editor/formula/FormulaHistoryMenu";
 import { useFormulaEditor } from "@/components/editor/formula/use-formula-editor";
-import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 const FORMULA_SYMBOLS = [
   { label: "∪", value: " ∪ ", title: "Unión" },
@@ -47,15 +48,14 @@ export function FormulaBar() {
   const selectedCount = selectedRegionIds.length;
 
   useKeyboardShortcut({
-    code: "Slash",
+    ...SHORTCUTS.focusFormula,
     onTrigger: () => {
       inputRef.current?.focus();
     },
   });
 
   useKeyboardShortcut({
-    code: "Backspace",
-    shift: true,
+    ...SHORTCUTS.clearFormula,
     enabled: hasFormula || selectedCount > 0,
     onTrigger: clearFormula,
   });

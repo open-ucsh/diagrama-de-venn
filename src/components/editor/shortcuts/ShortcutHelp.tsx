@@ -1,130 +1,15 @@
+import {
+  getKeyPresentation,
+  SHORTCUT_GROUPS,
+  type Platform,
+  type Shortcut,
+} from "@/components/editor/shortcuts/shortcuts";
+import { useDismissableLayer } from "@/hooks/use-dismissable-layer";
 import { Keyboard, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-type Platform = "windows" | "mac";
-type ShortcutKey =
-  | "modifier"
-  | "shift"
-  | "backspace"
-  | "enter"
-  | "space"
-  | "escape"
-  | "home"
-  | "end"
-  | "up"
-  | "down"
-  | "Z"
-  | "/"
-  | "1"
-  | "2"
-  | "3";
-
-interface Shortcut {
-  label: string;
-  combinations: readonly (readonly ShortcutKey[])[];
-}
-
-interface ShortcutGroup {
-  title: string;
-  shortcuts: readonly Shortcut[];
-}
-
-const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
-  {
-    title: "Edición",
-    shortcuts: [
-      {
-        label: "Deshacer",
-        combinations: [["modifier", "Z"]],
-      },
-      {
-        label: "Rehacer",
-        combinations: [["modifier", "shift", "Z"]],
-      },
-      {
-        label: "Enfocar fórmula",
-        combinations: [["modifier", "/"]],
-      },
-      {
-        label: "Limpiar fórmula",
-        combinations: [["modifier", "shift", "backspace"]],
-      },
-    ],
-  },
-  {
-    title: "Paneles",
-    shortcuts: [
-      {
-        label: "Conjuntos",
-        combinations: [["modifier", "shift", "1"]],
-      },
-      {
-        label: "Regiones",
-        combinations: [["modifier", "shift", "2"]],
-      },
-      {
-        label: "Historial",
-        combinations: [["modifier", "shift", "3"]],
-      },
-    ],
-  },
-  {
-    title: "Navegación",
-    shortcuts: [
-      {
-        label: "Recorrer regiones",
-        combinations: [["up"], ["down"]],
-      },
-      {
-        label: "Primera / última",
-        combinations: [["home"], ["end"]],
-      },
-      {
-        label: "Seleccionar región",
-        combinations: [["enter"], ["space"]],
-      },
-      {
-        label: "Cerrar regiones / historial",
-        combinations: [["escape"]],
-      },
-    ],
-  },
-];
-
 function getInitialPlatform(): Platform {
   return /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? "mac" : "windows";
-}
-
-function getKeyPresentation(
-  key: ShortcutKey,
-  platform: Platform,
-): { label: string; description: string } {
-  switch (key) {
-    case "modifier":
-      return platform === "mac"
-        ? { label: "⌘", description: "Command" }
-        : { label: "Ctrl", description: "Control" };
-    case "shift":
-      return { label: "⇧", description: "Shift" };
-    case "backspace":
-      return { label: "⌫", description: "Retroceso" };
-    case "enter":
-      return { label: "↵", description: "Enter" };
-    case "space":
-      return { label: "Espacio", description: "Espacio" };
-    case "escape":
-      return { label: "Esc", description: "Escape" };
-    case "home":
-      return { label: "Inicio", description: "Inicio" };
-    case "end":
-      return { label: "Fin", description: "Fin" };
-    case "up":
-      return { label: "↑", description: "Flecha arriba" };
-    case "down":
-      return { label: "↓", description: "Flecha abajo" };
-    default:
-      return { label: key, description: key };
-  }
 }
 
 function ShortcutKeys({
@@ -167,7 +52,7 @@ function ShortcutKeys({
   );
 }
 
-export function KeyboardShortcutsHelp() {
+export function ShortcutHelp() {
   const titleId = useId();
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -177,52 +62,23 @@ export function KeyboardShortcutsHelp() {
   const [isOpen, setIsOpen] = useState(false);
   const [platform, setPlatform] = useState<Platform>(getInitialPlatform);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    closeButtonRef.current?.focus();
-
-    function closeAndRestoreFocus(): void {
+  useDismissableLayer({
+    containerRef,
+    isOpen: () => isOpen,
+    dismissOnFocusOutside: true,
+    onDismiss: (restoreFocus) => {
       setIsOpen(false);
-      triggerRef.current?.focus();
-    }
 
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) {
-        return;
+      if (restoreFocus) {
+        triggerRef.current?.focus();
       }
+    },
+  });
 
-      event.preventDefault();
-      closeAndRestoreFocus();
+  useEffect(() => {
+    if (isOpen) {
+      closeButtonRef.current?.focus();
     }
-
-    function handlePointerDown(event: PointerEvent): void {
-      const container = containerRef.current;
-
-      if (container && event.target instanceof Node && !container.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-
-    function handleFocusIn(event: FocusEvent): void {
-      const container = containerRef.current;
-
-      if (container && event.target instanceof Node && !container.contains(event.target)) {
-        setIsOpen(false);
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("focusin", handleFocusIn);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("focusin", handleFocusIn);
-    };
   }, [isOpen]);
 
   function closePanel(): void {

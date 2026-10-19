@@ -1,4 +1,5 @@
-import { useKeyboardShortcut } from "@/components/editor/use-keyboard-shortcut";
+import { SHORTCUTS } from "@/components/editor/shortcuts/shortcuts";
+import { useKeyboardShortcut } from "@/hooks/use-keyboard-shortcut";
 
 interface HistoryShortcutsOptions {
   canUndo: boolean;
@@ -14,20 +15,19 @@ export function useHistoryShortcuts({
   redo,
 }: HistoryShortcutsOptions): void {
   useKeyboardShortcut({
-    code: "KeyZ",
+    ...SHORTCUTS.undo,
     enabled: canUndo,
     onTrigger: undo,
   });
 
   useKeyboardShortcut({
-    code: "KeyZ",
-    shift: true,
+    ...SHORTCUTS.redo,
     enabled: canRedo,
     onTrigger: redo,
   });
 
   useKeyboardShortcut({
-    code: "KeyY",
+    ...SHORTCUTS.redoAlternative,
     enabled: canRedo,
     onTrigger: redo,
   });
