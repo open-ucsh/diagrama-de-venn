@@ -1,3 +1,4 @@
+import { getExpressionSearchKey } from "@/domain/venn/expressions/expression-search-key";
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { getSelectedMask } from "@/domain/venn/expressions/expression-masks";
@@ -66,12 +67,10 @@ export function useExportMenu() {
   const formulaFeedback = useCopyFeedback();
   const linkFeedback = useCopyFeedback();
 
-  const setsKey = JSON.stringify(diagram.sets.map(({ id, name }) => ({ id, name })));
   const selectedMask = getSelectedMask(diagram, selectedRegionIds);
   const hasSelection = selectedRegionIds.length > 0;
 
-  // Debe coincidir con la clave utilizada por el editor de fórmulas.
-  const searchKey = JSON.stringify([setsKey, selectedMask, hasSelection]);
+  const searchKey = getExpressionSearchKey(diagram, selectedMask, hasSelection);
 
   const formula =
     hasSelection && expression.key === searchKey && expression.status === "ready"

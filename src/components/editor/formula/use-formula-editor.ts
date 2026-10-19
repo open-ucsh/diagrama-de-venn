@@ -1,3 +1,4 @@
+import { getExpressionSearchKey } from "@/domain/venn/expressions/expression-search-key";
 import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useFormulaHistory } from "@/components/editor/formula/use-formula-history";
@@ -52,10 +53,9 @@ export function useFormulaEditor() {
     useFormulaHistory();
 
   const namesKey = JSON.stringify(diagram.sets.map((set) => set.name));
-  const setsKey = JSON.stringify(diagram.sets.map(({ id, name }) => ({ id, name })));
   const selectedMask = getSelectedMask(diagram, selectedRegionIds);
   const hasSelection = selectedRegionIds.length > 0;
-  const searchKey = JSON.stringify([setsKey, selectedMask, hasSelection]);
+  const searchKey = getExpressionSearchKey(diagram, selectedMask, hasSelection);
 
   const diagramRef = useRef(diagram);
   const latestSearchKeyRef = useRef(searchKey);
