@@ -189,7 +189,7 @@ export function useMinimumExpression({
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [searchKey, selectedMask, hasSelection, isEditing, namesKey, attempt]);
+  }, [searchKey, selectedMask, hasSelection, isEditing, namesKey, attempt, isEditingRef]);
 
   useEffect(() => {
     if (search.status !== "ready" || !search.text) {
@@ -211,7 +211,7 @@ export function useMinimumExpression({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [search, saveFormulaToHistory]);
+  }, [search, saveFormulaToHistory, isEditingRef]);
 
   useEffect(() => {
     return () => {
